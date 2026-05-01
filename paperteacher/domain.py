@@ -205,7 +205,15 @@ def domain_for(arxiv_id: str) -> Domain:
     """Resolve the pack responsible for `arxiv_id`. Falls back to the first
     active pack when no metadata is recorded yet (i.e. legacy data, or a
     paper being read for the first time without a candidate hint).
+
+    Bundled packs are loaded eagerly here so a ValueError from
+    `get_domain(name)` reflects a genuinely unknown pack (e.g. a stamped
+    sidecar referencing a third-party pack that hasn't been imported), not
+    "the registry just hasn't booted yet". Without this, every CLI command
+    that touched a meta-sidecared paper logged a noisy "Unknown domain"
+    warning before silently falling through to active_domain().
     """
+    _ensure_bundled_domains_loaded()
     p = _meta_path(arxiv_id)
     if p.exists():
         try:
