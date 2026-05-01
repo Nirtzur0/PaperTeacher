@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from paperteacher import reader
+from paperteacher.domains.ml import reader
 
 
 PAPER_HTML = (

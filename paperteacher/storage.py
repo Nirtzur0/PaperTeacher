@@ -10,8 +10,11 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from . import paths
-from .models import AuditReport, Outline, parse_audit, parse_outline
+from .domain import active_domain
+from .domains._common import AuditReport
 
 log = logging.getLogger(__name__)
 
@@ -128,34 +131,36 @@ def topic_distribution(window: int = 30) -> dict[str, int]:
 # ---- outlines -------------------------------------------------------------
 
 
-def save_outline(arxiv_id: str, outline_yaml: str) -> tuple[Path, Outline]:
+def save_outline(arxiv_id: str, outline_yaml: str) -> tuple[Path, BaseModel]:
     """Validate + persist. Raises ParseError on schema mismatch.
 
-    The saved form is the *canonical* re-serialization, not the raw input —
-    field order and formatting become consistent across stages.
+    Outline schema and parser come from the active domain pack so different
+    subjects (ml, physics, philosophy, ...) can plug in their own typed
+    contracts without touching this layer. The saved form is the *canonical*
+    re-serialization — field order and formatting become consistent across stages.
     """
     paths.ensure_layout()
-    outline = parse_outline(outline_yaml)
+    domain = active_domain()
+    outline = domain.parse_outline(outline_yaml)
     p = paths.OUTLINES_DIR / f"{arxiv_id}.yaml"
     p.write_text(outline.to_yaml())
-    _emit(
-        "outline_saved",
-        arxiv_id=arxiv_id,
-        critical=len(outline.critical_ids()),
-        important=len(outline.important_ids()),
-        equations=len(outline.key_equations),
-        concepts=len(outline.key_concepts),
-    )
-    log.info("saved outline for %s (%d equations, %d concepts)",
-             arxiv_id, len(outline.key_equations), len(outline.key_concepts))
+    # Domain-specific stat fields (equations/concepts for ML; arguments/sources
+    # for humanities; etc.). Each domain's outline can implement summary helpers
+    # and we surface whatever the model exposes — fall back to None if absent.
+    extras = {}
+    for fn in ("critical_ids", "important_ids"):
+        if callable(getattr(outline, fn, None)):
+            extras[fn[:-4] + "s"] = len(getattr(outline, fn)())  # critical, important
+    _emit("outline_saved", arxiv_id=arxiv_id, domain=domain.name, **extras)
+    log.info("saved outline for %s (domain=%s)", arxiv_id, domain.name)
     return p, outline
 
 
-def load_outline(arxiv_id: str) -> Outline | None:
+def load_outline(arxiv_id: str) -> BaseModel | None:
     p = paths.OUTLINES_DIR / f"{arxiv_id}.yaml"
     if not p.exists():
         return None
-    return parse_outline(p.read_text())
+    return active_domain().parse_outline(p.read_text())
 
 
 def load_outline_yaml(arxiv_id: str) -> str | None:
@@ -186,7 +191,7 @@ def load_script(arxiv_id: str) -> str | None:
 
 def save_audit(arxiv_id: str, audit_yaml: str) -> tuple[Path, AuditReport]:
     paths.ensure_layout()
-    audit = parse_audit(audit_yaml)
+    audit = active_domain().parse_audit(audit_yaml)
     p = paths.AUDITS_DIR / f"{arxiv_id}.yaml"
     p.write_text(audit.to_yaml())
     _emit(
@@ -206,4 +211,4 @@ def load_audit(arxiv_id: str) -> AuditReport | None:
     p = paths.AUDITS_DIR / f"{arxiv_id}.yaml"
     if not p.exists():
         return None
-    return parse_audit(p.read_text())
+    return active_domain().parse_audit(p.read_text())

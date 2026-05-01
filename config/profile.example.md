@@ -1,5 +1,11 @@
 # Listener taste profile
 
+# Active domain pack. Selects which outline schema, prompt templates,
+# discovery sources and reader the pipeline uses. Override with the
+# PAPERTEACHER_DOMAIN env var. Currently shipped: "ml". Future: "physics",
+# "philosophy", "biology", "econ", ...
+domain: ml
+
 name: Nir
 fields:
   - machine learning theory

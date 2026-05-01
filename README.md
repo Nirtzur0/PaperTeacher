@@ -87,20 +87,44 @@ comes from the model — we just make it impossible to skip the hard parts.
 ```
 paperteacher/
 ├── __init__.py
-├── paths.py        # filesystem layout + tunable constants
-├── models.py       # Pydantic: Outline, Equation, Concept, AuditReport, …
-├── storage.py      # unified persistence (seen / outlines / scripts / audits)
-├── discovery.py    # HF Daily + arXiv RSS
-├── reader.py       # arXiv HTML → HF → arXiv abstract fallback
-├── prompts.py      # the three stage prompts
-├── tts.py          # TTS backend abstraction (Kokoro | Vertex AI)
-├── audio.py        # script orchestration: stitching, mp3/wav, atomic write
-├── server.py       # MCP server (entry: `paperteacher`)
-└── cli.py          # standalone CLI (entry: `paperteacher-cli`)
+├── paths.py            # filesystem layout + tunable constants (core)
+├── storage.py          # unified persistence: seen / skipped / outlines / scripts / audits (core)
+├── tts.py              # TTS backend abstraction: Kokoro | Vertex AI (core)
+├── audio.py            # script orchestration: stitching, mp3/wav, atomic write (core)
+├── server.py           # MCP server, entry `paperteacher` (core)
+├── cli.py              # standalone CLI, entry `paperteacher-cli` (core)
+├── domain.py           # Domain protocol + registry + active-domain resolver
+└── domains/
+    ├── __init__.py     # namespace (intentionally empty)
+    ├── _common.py      # cross-domain types: AuditReport, ParseError, Candidate, PaperText
+    └── ml/             # the "ml" domain pack
+        ├── __init__.py # MLDomain class + registration
+        ├── models.py   # Pydantic: Outline / Equation / Concept (ML-specific)
+        ├── prompts.py  # the three stage prompts (ML-specific)
+        ├── discovery.py# HF Daily + arXiv RSS
+        └── reader.py   # arXiv HTML → HF → arXiv abstract fallback
 
 skills/paper_teacher/
-└── SKILL.md        # OpenClaw skill (loaded via skills.load.extraDirs)
+└── SKILL.md            # OpenClaw skill (loaded via skills.load.extraDirs)
 ```
+
+### Domain packs
+
+A **domain** bundles the subject-specific bits of the pipeline — the outline
+schema, the prompt templates, discovery sources, the reader. The orchestration
+framework (storage, audio, TTS, MCP server, CLI) is domain-agnostic and routes
+through `paperteacher.domain.active_domain()`.
+
+The active domain resolves from (first hit wins):
+1. `PAPERTEACHER_DOMAIN` env var
+2. A `domain: <name>` line in the listener profile (`~/.paperteacher/profile.md`)
+3. Default `"ml"`
+
+Currently shipped: `ml` (math-heavy ML / CS papers from arXiv + HF Daily). To
+add a new domain, create `paperteacher/domains/<name>/__init__.py` with a
+class conforming to the `Domain` protocol and call `register_domain("<name>",
+YourClass)` at module level. Add `from .domains import <name>` to
+`_ensure_bundled_domains_loaded` in `paperteacher/domain.py`.
 
 State lives under `~/.paperteacher/` (override with `PAPERTEACHER_HOME`):
 - `profile.md` — listener taste profile (copy from `config/profile.example.md`)

@@ -1,26 +1,21 @@
-"""Read full paper text using the fallback chain: arXiv HTML -> HF papers -> arXiv abstract."""
+"""Read full paper text using the fallback chain: arXiv HTML -> HF papers -> arXiv abstract.
+
+ML-domain reader. Other domain packs ship their own reader (e.g. PDF parsing
+for non-arXiv sources, or DOI redirection for journal papers).
+"""
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 
 import httpx
 from bs4 import BeautifulSoup
 
-from . import paths
+from ... import paths
+from .._common import PaperText
 
 log = logging.getLogger(__name__)
 
 MIN_USEFUL_TEXT_LEN = 500  # below this *extracted* length, treat as "not the paper"
-
-
-@dataclass
-class PaperText:
-    arxiv_id: str
-    title: str
-    text: str
-    source: str  # arxiv_html | hf_paper | arxiv_abs | none
-    truncated: bool = False
 
 
 def _strip(html: str) -> str:

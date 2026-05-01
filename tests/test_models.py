@@ -3,13 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from paperteacher.models import (
-    AuditReport,
-    Outline,
-    ParseError,
-    parse_audit,
-    parse_outline,
-)
+from paperteacher.domains._common import AuditReport, ParseError, parse_audit
+from paperteacher.domains.ml.models import Outline, parse_outline
 
 
 VALID_OUTLINE_YAML = """\

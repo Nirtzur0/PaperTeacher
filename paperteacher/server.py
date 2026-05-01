@@ -13,8 +13,8 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from . import audio, discovery, paths, prompts, reader, storage, tts
-from .models import ParseError
+from . import audio, paths, storage, tts
+from .domain import ParseError, active_domain
 
 log = logging.getLogger(__name__)
 mcp = FastMCP("paperteacher")
@@ -50,16 +50,20 @@ async def fetch_trending_papers(
     arxiv_categories: list[str] | None = None,
     limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
 ) -> list[dict]:
-    """Discover candidate papers from HF Daily + arXiv RSS. Filters out seen."""
-    cands = await discovery.discover(arxiv_categories=arxiv_categories or [], limit=limit)
+    """Discover candidate papers via the active domain pack's discovery sources.
+    For ML: HF Daily + arXiv RSS. Other domains route through their own
+    fetchers. Filters out seen and skipped IDs server-side.
+    """
+    domain = active_domain()
+    cands = await domain.discover(arxiv_categories=arxiv_categories or [], limit=limit)
     excluded = storage.seen_ids() | storage.skipped_ids()
     return [c.to_dict() for c in cands if c.arxiv_id not in excluded]
 
 
 @mcp.tool()
 async def read_paper(arxiv_id: str, max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS) -> dict:
-    """Fetch full text via fallback: arXiv HTML -> HF papers -> arXiv abstract."""
-    p = await reader.read_paper(arxiv_id, max_chars=max_chars)
+    """Fetch full paper text via the active domain pack's reader."""
+    p = await active_domain().read(arxiv_id, max_chars=max_chars)
     return {
         "arxiv_id": p.arxiv_id,
         "title": p.title,
@@ -83,16 +87,17 @@ def save_outline(arxiv_id: str, outline_yaml: str) -> dict:
         path, outline = storage.save_outline(arxiv_id, outline_yaml)
     except ParseError as e:
         return {"ok": False, "error": str(e), "raw_preview": outline_yaml[:500]}
-    return {
-        "ok": True,
-        "path": str(path),
-        "stats": {
-            "equations": len(outline.key_equations),
-            "concepts": len(outline.key_concepts),
-            "critical_ids": outline.critical_ids(),
-            "important_ids": outline.important_ids(),
-        },
-    }
+    # Domain-specific stat fields. Each domain's outline can expose any
+    # combination of `critical_ids`/`important_ids`/`key_equations`/etc.;
+    # we surface whatever is present and skip the rest.
+    stats: dict = {}
+    for fn in ("critical_ids", "important_ids"):
+        if callable(getattr(outline, fn, None)):
+            stats[fn] = getattr(outline, fn)()
+    for attr in ("key_equations", "key_concepts"):
+        if isinstance(getattr(outline, attr, None), list):
+            stats[attr.replace("key_", "") + "_count"] = len(getattr(outline, attr))
+    return {"ok": True, "path": str(path), "stats": stats}
 
 
 @mcp.tool()
@@ -227,11 +232,13 @@ def render_audio(
 
 @mcp.prompt()
 async def extract_outline(arxiv_id: str) -> str:
-    """STAGE 1. Read the paper and produce a structured YAML outline of every
-    concept and equation. The outline becomes the coverage contract for stage 2.
+    """STAGE 1. Read the paper and produce a structured YAML outline. The
+    outline shape is determined by the active domain pack — for ML this is
+    the equation+concept schema; other domains use their own contracts.
     """
-    p = await reader.read_paper(arxiv_id)
-    return prompts.render_extract(
+    domain = active_domain()
+    p = await domain.read(arxiv_id)
+    return domain.render_extract(
         arxiv_id=arxiv_id,
         title=p.title,
         taste_profile=_profile_text(),
@@ -252,8 +259,9 @@ async def teach_from_outline(arxiv_id: str, mode: str = "single_host") -> str:
             f"`save_outline(arxiv_id={arxiv_id!r}, outline_yaml=...)` with the result, "
             f"then re-invoke this prompt."
         )
-    p = await reader.read_paper(arxiv_id)
-    return prompts.render_teach(
+    domain = active_domain()
+    p = await domain.read(arxiv_id)
+    return domain.render_teach(
         arxiv_id=arxiv_id,
         title=p.title,
         taste_profile=_profile_text(),
@@ -278,7 +286,7 @@ def audit_coverage(arxiv_id: str) -> str:
         if not script:
             missing.append("script")
         return f"ERROR: missing {', '.join(missing)} for {arxiv_id}. Run earlier stages first."
-    return prompts.render_audit(outline_yaml=outline_yaml, script=script)
+    return active_domain().render_audit(outline_yaml=outline_yaml, script=script)
 
 
 def main() -> None:

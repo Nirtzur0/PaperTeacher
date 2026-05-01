@@ -68,7 +68,7 @@ def test_outline_save_validates_and_returns_canonical(paperteacher_home):
     assert storage.load_outline_yaml("2603.20105") is not None
 
     # Bad YAML raises ParseError, no file written.
-    from paperteacher.models import ParseError
+    from paperteacher.domains._common import ParseError
     with pytest.raises(ParseError):
         storage.save_outline("2603.99999", "paper_id: [bad")
     assert storage.load_outline("2603.99999") is None

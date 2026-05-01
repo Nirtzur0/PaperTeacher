@@ -1,33 +1,24 @@
-"""Discover candidate papers from HF Daily Papers and arXiv RSS feeds."""
+"""Discover candidate papers from HF Daily Papers and arXiv RSS feeds.
+
+ML-domain discovery sources. Other domain packs (physics, econ, philosophy,
+biology, ...) ship their own discovery module and register a different
+fetcher chain via the Domain protocol.
+"""
 from __future__ import annotations
 
 import datetime as dt
 import logging
 import re
-from dataclasses import dataclass, asdict
 
 import feedparser
 import httpx
 
-from . import paths
+from ... import paths
+from .._common import Candidate
 
 log = logging.getLogger(__name__)
 
 ARXIV_ID_RE = re.compile(r"(\d{4}\.\d{4,5})")
-
-
-@dataclass
-class Candidate:
-    arxiv_id: str
-    title: str
-    authors: list[str]
-    summary: str
-    source: str
-    score: float = 0.0
-    url: str = ""
-
-    def to_dict(self) -> dict:
-        return asdict(self)
 
 
 def _extract_arxiv_id(text: str) -> str | None:

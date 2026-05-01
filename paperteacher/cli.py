@@ -13,7 +13,8 @@ from pathlib import Path
 
 import typer
 
-from . import audio, discovery, paths, prompts, reader, storage, tts
+from . import audio, paths, storage, tts
+from .domain import active_domain
 
 app = typer.Typer(
     add_completion=False,
@@ -40,7 +41,7 @@ def discover(
 ) -> None:
     """List candidate papers (HF Daily + arXiv RSS), filtering already-seen."""
     cats = [c.strip() for c in categories.split(",") if c.strip()]
-    cands = asyncio.run(discovery.discover(arxiv_categories=cats, limit=limit))
+    cands = asyncio.run(active_domain().discover(arxiv_categories=cats, limit=limit))
     seen = storage.seen_ids()
     cands = [c for c in cands if c.arxiv_id not in seen]
     if json_output:
@@ -56,7 +57,7 @@ def discover(
 @app.command()
 def read(arxiv_id: str, max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS) -> None:
     """Print the paper's full text (or abstract if HTML unavailable)."""
-    p = asyncio.run(reader.read_paper(arxiv_id, max_chars=max_chars))
+    p = asyncio.run(active_domain().read(arxiv_id, max_chars=max_chars))
     typer.echo(f"# source: {p.source}  truncated: {p.truncated}\n# title: {p.title}\n")
     typer.echo(p.text)
 
@@ -70,8 +71,9 @@ app.add_typer(prompt, name="prompt")
 @prompt.command("extract")
 def prompt_extract(arxiv_id: str) -> None:
     """STAGE 1 prompt — feed paper to your LLM, expect YAML outline back."""
-    paper = asyncio.run(reader.read_paper(arxiv_id))
-    typer.echo(prompts.render_extract(
+    domain = active_domain()
+    paper = asyncio.run(domain.read(arxiv_id))
+    typer.echo(domain.render_extract(
         arxiv_id=arxiv_id,
         title=paper.title,
         taste_profile=_profile(),
@@ -89,8 +91,9 @@ def prompt_teach(
     if outline_yaml is None:
         typer.echo(f"error: no outline for {arxiv_id} — run extract + save-outline first", err=True)
         raise typer.Exit(1)
-    paper = asyncio.run(reader.read_paper(arxiv_id))
-    typer.echo(prompts.render_teach(
+    domain = active_domain()
+    paper = asyncio.run(domain.read(arxiv_id))
+    typer.echo(domain.render_teach(
         arxiv_id=arxiv_id,
         title=paper.title,
         taste_profile=_profile(),
@@ -109,7 +112,7 @@ def prompt_audit(arxiv_id: str) -> None:
         missing = [n for n, v in [("outline", outline_yaml), ("script", script)] if v is None]
         typer.echo(f"error: missing {', '.join(missing)} for {arxiv_id}", err=True)
         raise typer.Exit(1)
-    typer.echo(prompts.render_audit(outline_yaml=outline_yaml, script=script))
+    typer.echo(active_domain().render_audit(outline_yaml=outline_yaml, script=script))
 
 
 # ---- save (stages 1, 2, 3 outputs) ---------------------------------------
@@ -129,10 +132,16 @@ def save_outline(
     """Validate + save the LLM's outline output."""
     raw = _read_input(file)
     p, outline = storage.save_outline(arxiv_id, raw)
-    typer.echo(
-        f"saved {p}  ({len(outline.key_equations)} equations, "
-        f"{len(outline.critical_ids())} critical)"
-    )
+    # Domain-specific stat surfacing — `key_equations` and `critical_ids` are
+    # ML-shaped; other domains expose their own.
+    bits: list[str] = []
+    eqs = getattr(outline, "key_equations", None)
+    if isinstance(eqs, list):
+        bits.append(f"{len(eqs)} equations")
+    if callable(getattr(outline, "critical_ids", None)):
+        bits.append(f"{len(outline.critical_ids())} critical")
+    suffix = f"  ({', '.join(bits)})" if bits else ""
+    typer.echo(f"saved {p}{suffix}")
 
 
 @app.command("save-script")

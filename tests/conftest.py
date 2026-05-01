@@ -24,5 +24,9 @@ def paperteacher_home(tmp_path, monkeypatch):
     importlib.reload(paths_mod)
     import paperteacher.storage as storage_mod
     importlib.reload(storage_mod)
+    # Reset cached active domain so tests that switch PAPERTEACHER_DOMAIN
+    # via monkeypatch.setenv get a fresh resolution.
+    import paperteacher.domain as domain_mod
+    domain_mod.reset_active()
     paths_mod.ensure_layout()
     return tmp_path
