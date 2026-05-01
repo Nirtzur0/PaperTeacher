@@ -9,3 +9,8 @@ build/
 out/
 *.mp3
 *.wav
+.pytest_cache/
+.ruff_cache/
+
+# user-specific listener profile (use config/profile.example.md as a template)
+config/profile.md

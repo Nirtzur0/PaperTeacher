@@ -13,7 +13,7 @@ from pathlib import Path
 
 import typer
 
-from . import audio, discovery, paths, prompts, reader, storage
+from . import audio, discovery, paths, prompts, reader, storage, tts
 
 app = typer.Typer(
     add_completion=False,
@@ -41,7 +41,8 @@ def discover(
     """List candidate papers (HF Daily + arXiv RSS), filtering already-seen."""
     cats = [c.strip() for c in categories.split(",") if c.strip()]
     cands = asyncio.run(discovery.discover(arxiv_categories=cats, limit=limit))
-    cands = [c for c in cands if not storage.is_seen(c.arxiv_id)]
+    seen = storage.seen_ids()
+    cands = [c for c in cands if c.arxiv_id not in seen]
     if json_output:
         typer.echo(json.dumps([c.to_dict() for c in cands], indent=2))
         return
@@ -163,13 +164,22 @@ def render(
     arxiv_id: str,
     mode: str = typer.Option("single_host"),
     output_format: str = typer.Option("mp3"),
+    backend: str = typer.Option(
+        "", help="kokoro | vertex (default: $PAPERTEACHER_TTS or kokoro)"
+    ),
 ) -> None:
     """Render the saved script for `arxiv_id` to audio."""
     script = storage.load_script(arxiv_id)
     if script is None:
         typer.echo(f"error: no script for {arxiv_id}", err=True)
         raise typer.Exit(1)
-    out = audio.render(script=script, mode=mode, output_format=output_format)
+    out = audio.render(
+        script=script,
+        mode=mode,
+        output_format=output_format,
+        backend=tts.get_backend(backend or None),
+        filename=f"paper_{arxiv_id}.{output_format}",
+    )
     typer.echo(str(out))
 
 

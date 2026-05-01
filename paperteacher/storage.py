@@ -35,8 +35,15 @@ def list_seen() -> list[dict]:
     return [json.loads(line) for line in paths.SEEN_FILE.read_text().splitlines() if line.strip()]
 
 
+def seen_ids() -> set[str]:
+    """One-shot set of all seen arxiv_ids. Use this when filtering a batch
+    instead of calling `is_seen` per candidate (which re-reads the file each time).
+    """
+    return {row["arxiv_id"] for row in list_seen() if "arxiv_id" in row}
+
+
 def is_seen(arxiv_id: str) -> bool:
-    return any(row.get("arxiv_id") == arxiv_id for row in list_seen())
+    return arxiv_id in seen_ids()
 
 
 def mark_seen(arxiv_id: str, *, title: str = "", note: str = "") -> Path:

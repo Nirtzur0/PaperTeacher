@@ -1,15 +1,8 @@
 ---
-name: paper_teacher
-description: |
-  Daily research-paper podcast for WhatsApp.
-
-  Pipeline: discover -> read -> extract structured outline -> write script with
-  mandatory coverage of every critical equation and concept -> audit coverage ->
-  regenerate if anything was glossed -> render audio -> deliver as text hook + voice note.
-
-  Decompose-then-execute beats single-shot summarization for technical depth.
-  The outline IS the coverage contract; the audit verifies it; regeneration
-  only fires if something was missed.
+name: paper-teacher
+description: Daily research-paper podcast. Picks one trending arXiv/HF paper, runs a 3-stage decompose-then-execute pipeline (extract structured outline → write script with mandatory coverage of every critical equation → audit and regenerate-if-glossed), renders to audio (Kokoro local or Vertex AI Chirp 3), and delivers a text hook + voice note over WhatsApp. Decompose-then-execute beats single-shot summarization for technical depth.
+homepage: https://github.com/Nirtzur0/PaperTeacher
+metadata: {"openclaw":{"emoji":"📄","requires":{"bins":["uv","ffmpeg"]}}}
 schedule:
   cron: "0 8 * * *"
   timezone: "local"
@@ -76,8 +69,10 @@ combine them in your head.
 
 ## Stage 4 — render and deliver
 
-14. Call `paperteacher.render_audio(script=..., mode="single_host")`. Returns
-    an mp3 path.
+14. Call `paperteacher.render_audio(arxiv_id=..., mode="single_host")`. The
+    server loads the saved script and renders via the configured TTS backend
+    (defaults to Kokoro; set `PAPERTEACHER_TTS=vertex` or pass `backend="vertex"`
+    to use Google Vertex AI Chirp 3 HD voices). Returns an mp3 path.
 15. Send to WhatsApp as TWO messages:
     - First (text): `*{title}* — {2-sentence hook}.\nhttps://arxiv.org/abs/{arxiv_id}`
     - Second (voice note): the mp3 from step 14.

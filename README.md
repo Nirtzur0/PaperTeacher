@@ -5,9 +5,10 @@ technical.
 
 One paper a day, picked from HuggingFace Daily Papers and arXiv, taught
 through a **3-stage decompose-then-execute pipeline** that forces full
-coverage of every equation and concept (no glossing). Narrated locally
-by [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), delivered by
-[OpenClaw](https://openclaw.ai).
+coverage of every equation and concept (no glossing). Narrated by your
+choice of [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (local,
+free) or Google Vertex AI Text-to-Speech (Chirp 3 HD voices). Delivered
+by [OpenClaw](https://openclaw.ai).
 
 ## Why decompose-then-execute
 
@@ -31,7 +32,7 @@ teach_from_outline ← stage 2: write script with outline as coverage contract
 audit_coverage     ← stage 3: blunt audit. recommendation: ship |
    save_audit                 regenerate_with_gaps | regenerate_from_scratch.
    ↓
-render_audio (local Kokoro)
+render_audio (Kokoro local | Vertex AI TTS)
    ↓
 WhatsApp: text hook + voice note
 ```
@@ -76,7 +77,10 @@ comes from the model — we just make it impossible to skip the hard parts.
   output at the boundary, not three stages later.
 - **OpenClaw skill** = the orchestrator. Chains the three stages and a single
   retry loop, handles cron, sends to WhatsApp.
-- **Kokoro-82M** = local TTS. Free, runs on your laptop, no API keys.
+- **TTS** = pluggable backend (`paperteacher.tts`). Pick one:
+  - `kokoro` — local Kokoro-82M. Free, runs on your laptop, no API keys.
+  - `vertex` — Google Vertex AI Chirp 3 HD voices. Higher quality, needs ADC.
+  Select via `PAPERTEACHER_TTS=kokoro|vertex` or the `--backend` CLI flag.
 
 ## Project layout
 
@@ -89,26 +93,41 @@ paperteacher/
 ├── discovery.py    # HF Daily + arXiv RSS
 ├── reader.py       # arXiv HTML → HF → arXiv abstract fallback
 ├── prompts.py      # the three stage prompts
-├── audio.py        # Kokoro-82M, single + two-host stitching
+├── tts.py          # TTS backend abstraction (Kokoro | Vertex AI)
+├── audio.py        # script orchestration: stitching, mp3/wav, atomic write
 ├── server.py       # MCP server (entry: `paperteacher`)
 └── cli.py          # standalone CLI (entry: `paperteacher-cli`)
+
+skills/paper_teacher/
+└── SKILL.md        # OpenClaw skill (loaded via skills.load.extraDirs)
 ```
 
 State lives under `~/.paperteacher/` (override with `PAPERTEACHER_HOME`):
+- `profile.md` — listener taste profile (copy from `config/profile.example.md`)
 - `seen.jsonl` — delivered papers
 - `outlines/{id}.yaml` — stage 1 output, validated
 - `scripts/{id}.txt` — stage 2 output
 - `audits/{id}.yaml` — stage 3 output, validated
-- `audio/paper_YYYY-MM-DD.mp3` — rendered episodes
+- `audio/paper_{arxiv_id}.mp3` — rendered episodes
 - `pipeline.jsonl` — structured event log
 
 ## Quick start
 
 ```bash
+# core install (no TTS yet — pick one below)
 pip install -e .
 
-# fill in your taste profile
-$EDITOR config/profile.md
+# pick a TTS backend (you can install both and switch via env var)
+pip install -e '.[tts-kokoro]'   # local, free, no keys
+pip install -e '.[tts-vertex]'   # Google Vertex AI; auth via ADC
+
+# copy the example profile to ~/.paperteacher/profile.md and edit it
+mkdir -p ~/.paperteacher
+cp config/profile.example.md ~/.paperteacher/profile.md
+$EDITOR ~/.paperteacher/profile.md
+
+# select a backend (default is kokoro)
+export PAPERTEACHER_TTS=vertex
 
 # one-paper end-to-end (manual, no MCP host) ----------------------------
 paperteacher-cli discover --categories cs.LG,stat.ML
@@ -118,12 +137,16 @@ paperteacher-cli prompt teach 2603.20105 | your-llm > script.txt
 paperteacher-cli save-script 2603.20105 -f script.txt
 paperteacher-cli prompt audit 2603.20105 | your-llm > audit.yaml
 paperteacher-cli save-audit 2603.20105 -f audit.yaml
-paperteacher-cli render 2603.20105
+paperteacher-cli render 2603.20105 --backend vertex
 paperteacher-cli seen mark 2603.20105
 ```
 
 ffmpeg is needed for mp3 (via pydub). `brew install ffmpeg` /
 `apt install ffmpeg`. Or pass `--output-format wav` to `render`.
+
+For Vertex AI TTS, authenticate once with
+`gcloud auth application-default login` (or set
+`GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON path).
 
 ### Wire into Claude Code
 
@@ -138,9 +161,41 @@ The host LLM walks through `extract → save_outline → teach → save_script
 
 ### Wire into OpenClaw
 
-Copy `openclaw/SKILL.md` to `~/.openclaw/workspace/skills/paper_teacher/SKILL.md`.
-The skill chains every stage and handles the regenerate-on-gaps loop with a
-hard one-retry limit.
+OpenClaw loads skills directly from the repo via `skills.load.extraDirs` in
+`~/.openclaw/openclaw.json` — no copying required. Add two entries:
+
+```jsonc
+// ~/.openclaw/openclaw.json
+{
+  "skills": {
+    "load": {
+      "extraDirs": [
+        "/absolute/path/to/PaperTeacher/skills"
+      ]
+    }
+  },
+  "mcp": {
+    "servers": {
+      "paperteacher": {
+        "command": "uv",
+        "args": ["run", "--directory", "/absolute/path/to/PaperTeacher",
+                 "python", "-m", "paperteacher.server"],
+        "description": "PaperTeacher MCP server"
+      }
+    }
+  }
+}
+```
+
+The skill at `skills/paper_teacher/SKILL.md` chains every stage and handles
+the regenerate-on-gaps loop with a hard one-retry limit. The MCP server runs
+in-place via `uv run` — pull the repo, edit, restart OpenClaw.
+
+**Coexistence with other OpenClaw projects:** PaperTeacher's MCP server
+(`paperteacher`) and skill (`paper-teacher`) are independently named, store
+all state under `~/.paperteacher/`, and don't share filesystem or configuration
+with sibling projects (e.g. AuctionScanner). Both can run on the same
+WhatsApp allowlist and the same cron schedule without interfering.
 
 ## MCP surface
 
@@ -155,8 +210,9 @@ hard one-retry limit.
 - `get_outline(arxiv_id)` / `save_script(...)` / `get_script(...)`
 - `save_audit(arxiv_id, audit_yaml)` — validates, returns the recommendation
   so the host can branch without re-parsing.
-- `render_audio(script, mode, output_format?)` — local Kokoro. `mode`:
-  `single_host` or `two_host`. `output_format`: `mp3` or `wav`.
+- `render_audio(arxiv_id, mode?, output_format?, backend?)` — render the
+  saved script. `mode`: `single_host` | `two_host`. `output_format`: `mp3` |
+  `wav`. `backend`: `kokoro` | `vertex` (defaults to `PAPERTEACHER_TTS`).
 - `list_seen()` / `mark_seen(...)`
 
 **Prompts (the three pipeline stages)**
@@ -185,7 +241,8 @@ PaperTeacher inverts that:
   not silently three stages later.
 - **The host LLM (Claude / Gemini) writes every word** — we just structure
   the workflow so it can't avoid the hard parts.
-- **Kokoro-82M narrates locally** — no cloud TTS, no API keys, no per-token cost.
+- **Pluggable TTS** — Kokoro local for free / private / offline, or Vertex
+  AI Chirp 3 HD when you want studio-grade prosody. Same render path either way.
 
 ## Subscription auth
 
@@ -195,4 +252,6 @@ OAuth, you pay nothing per token; if it uses a Gemini or Anthropic API key,
 you pay whatever the host pays. Provider choice lives where it should:
 with the host.
 
-TTS runs entirely on your machine via Kokoro — no third-party keys needed.
+TTS is a separate decision and is *yours* to make: Kokoro runs entirely on
+your machine (no third-party keys), Vertex AI uses Google Cloud ADC and
+your project's quota.

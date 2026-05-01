@@ -14,7 +14,6 @@ from . import paths
 log = logging.getLogger(__name__)
 
 ARXIV_ID_RE = re.compile(r"(\d{4}\.\d{4,5})")
-USER_AGENT = "PaperTeacher/0.1 (+https://github.com/Nirtzur0/paperteacher)"
 
 
 @dataclass
@@ -46,7 +45,7 @@ async def fetch_hf_daily(
     out: list[Candidate] = []
     try:
         async with httpx.AsyncClient(
-            timeout=30, headers={"User-Agent": USER_AGENT}
+            timeout=30, headers={"User-Agent": paths.USER_AGENT}
         ) as client:
             r = await client.get(url)
             r.raise_for_status()
@@ -86,7 +85,7 @@ async def fetch_arxiv_rss(
     body: str
     try:
         async with httpx.AsyncClient(
-            timeout=30, follow_redirects=True, headers={"User-Agent": USER_AGENT}
+            timeout=30, follow_redirects=True, headers={"User-Agent": paths.USER_AGENT}
         ) as client:
             r = await client.get(url)
             r.raise_for_status()
@@ -115,7 +114,6 @@ async def fetch_arxiv_rss(
 
 
 async def discover(
-    fields: list[str] | None = None,
     arxiv_categories: list[str] | None = None,
     date: dt.date | None = None,
     limit: int = paths.DEFAULT_DISCOVERY_LIMIT,

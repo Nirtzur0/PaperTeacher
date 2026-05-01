@@ -13,7 +13,7 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from . import audio, discovery, paths, prompts, reader, storage
+from . import audio, discovery, paths, prompts, reader, storage, tts
 from .models import ParseError
 
 log = logging.getLogger(__name__)
@@ -52,7 +52,8 @@ async def fetch_trending_papers(
 ) -> list[dict]:
     """Discover candidate papers from HF Daily + arXiv RSS. Filters out seen."""
     cands = await discovery.discover(arxiv_categories=arxiv_categories or [], limit=limit)
-    return [c.to_dict() for c in cands if not storage.is_seen(c.arxiv_id)]
+    seen = storage.seen_ids()
+    return [c.to_dict() for c in cands if c.arxiv_id not in seen]
 
 
 @mcp.tool()
@@ -153,17 +154,29 @@ def mark_seen(arxiv_id: str, title: str = "", note: str = "") -> dict:
 
 @mcp.tool()
 def render_audio(
-    script: str,
+    arxiv_id: str,
     mode: str = "single_host",
     output_format: str = "mp3",
+    backend: str | None = None,
 ) -> dict:
-    """Render a script to audio via local Kokoro-82M.
+    """Render the saved script for `arxiv_id` to audio.
 
     mode: "single_host" (denser, math-friendly) or "two_host" (parses
           <Person1>/<Person2> tags, stitches with a short pause).
     output_format: "mp3" (needs ffmpeg) or "wav".
+    backend: "kokoro" (local, default) or "vertex" (Google Vertex AI TTS).
+             Falls back to PAPERTEACHER_TTS env var when omitted.
     """
-    out = audio.render(script=script, mode=mode, output_format=output_format)
+    script = storage.load_script(arxiv_id)
+    if script is None:
+        return {"ok": False, "error": f"no script saved for {arxiv_id}"}
+    out = audio.render(
+        script=script,
+        mode=mode,
+        output_format=output_format,
+        backend=tts.get_backend(backend) if backend else None,
+        filename=f"paper_{arxiv_id}.{output_format}",
+    )
     return {"ok": True, "audio_path": str(out)}
 
 

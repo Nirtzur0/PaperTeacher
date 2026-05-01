@@ -11,8 +11,7 @@ from . import paths
 
 log = logging.getLogger(__name__)
 
-USER_AGENT = "PaperTeacher/0.1"
-MIN_USEFUL_LEN = 500  # below this, treat as "not the paper"
+MIN_USEFUL_TEXT_LEN = 500  # below this *extracted* length, treat as "not the paper"
 
 
 @dataclass
@@ -46,7 +45,7 @@ def _truncate(p: PaperText, max_chars: int) -> PaperText:
     return p
 
 
-async def _try(url: str, client: httpx.AsyncClient) -> str | None:
+async def _fetch(url: str, client: httpx.AsyncClient) -> str | None:
     try:
         r = await client.get(url, follow_redirects=True)
     except httpx.HTTPError as e:
@@ -54,9 +53,6 @@ async def _try(url: str, client: httpx.AsyncClient) -> str | None:
         return None
     if r.status_code != 200:
         log.debug("fetch %s -> %d", url, r.status_code)
-        return None
-    if len(r.text) < MIN_USEFUL_LEN:
-        log.debug("fetch %s too short (%d)", url, len(r.text))
         return None
     return r.text
 
@@ -66,18 +62,27 @@ async def read_paper(
     max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS,
 ) -> PaperText:
     """Try arxiv HTML, then HF paper page, then arXiv abstract. Always returns;
-    `source == "none"` indicates total failure."""
+    `source == "none"` indicates total failure.
+
+    The arXiv HTML URL omits the version suffix — arxiv.org redirects to the
+    latest revision, so this works for v1 / v2 / v3 papers alike.
+    """
     sources = [
-        (f"https://arxiv.org/html/{arxiv_id}v1", "arxiv_html"),
+        (f"https://arxiv.org/html/{arxiv_id}", "arxiv_html"),
         (f"https://huggingface.co/papers/{arxiv_id}", "hf_paper"),
         (f"https://arxiv.org/abs/{arxiv_id}", "arxiv_abs"),
     ]
-    async with httpx.AsyncClient(timeout=45, headers={"User-Agent": USER_AGENT}) as client:
+    async with httpx.AsyncClient(
+        timeout=45, headers={"User-Agent": paths.USER_AGENT}
+    ) as client:
         for url, label in sources:
-            html = await _try(url, client)
+            html = await _fetch(url, client)
             if html is None:
                 continue
             text = _strip(html)
+            if len(text) < MIN_USEFUL_TEXT_LEN:
+                log.debug("fetch %s extracted text too short (%d chars)", url, len(text))
+                continue
             log.info("read_paper %s: %s (%d chars)", arxiv_id, label, len(text))
             return _truncate(PaperText(arxiv_id, _title_from(html), text, label), max_chars)
 
