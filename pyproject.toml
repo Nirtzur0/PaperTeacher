@@ -1,24 +1,28 @@
 [project]
 name = "paperteacher"
-version = "0.1.0"
-description = "MCP server: discover, summarize, and narrate research papers as a daily technical podcast (local TTS)."
+version = "0.2.0"
+description = "MCP server: discover, summarize, and narrate research papers as a daily technical podcast (3-stage decompose-then-execute pipeline, local TTS)."
 requires-python = ">=3.11"
 dependencies = [
+    # core
     "mcp>=1.2.0",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    # discovery + reading
     "httpx>=0.27",
-    "arxiv>=2.1",
     "feedparser>=6.0",
     "beautifulsoup4>=4.12",
+    # local TTS
     "kokoro>=0.7",
     "soundfile>=0.12",
     "numpy>=1.26",
     "pydub>=0.25",
-    "pydantic>=2.7",
-    "python-dotenv>=1.0",
 ]
 
 [project.scripts]
 paperteacher = "paperteacher.server:main"
+paperteacher-cli = "paperteacher.cli:main"
 
 [build-system]
 requires = ["hatchling"]
