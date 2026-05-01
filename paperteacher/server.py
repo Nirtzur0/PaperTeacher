@@ -11,7 +11,6 @@ from . import audio, discovery, prompts, reader, state
 mcp = FastMCP("paperteacher")
 
 PROFILE_PATH = Path(os.environ.get("PAPERTEACHER_PROFILE", "config/profile.md"))
-PODCAST_CONFIG = Path(os.environ.get("PAPERTEACHER_PODCAST_CONFIG", "config/podcast_config.yaml"))
 
 
 def _profile_text() -> str:
@@ -79,15 +78,15 @@ def mark_seen(arxiv_id: str, title: str = "", note: str = "") -> dict:
 def render_audio(
     script: str,
     mode: str = "single_host",
-    tts_model: str = "elevenlabs",
+    output_format: str = "mp3",
 ) -> dict:
-    """Render a script to mp3. mode is "single_host" or "two_host"."""
-    out = audio.render(
-        script=script,
-        mode=mode,
-        tts_model=tts_model,
-        config_path=PODCAST_CONFIG if PODCAST_CONFIG.exists() else None,
-    )
+    """Render a script to local audio via Kokoro-82M.
+
+    mode: "single_host" (default, denser, math-friendly) or "two_host"
+          (requires <Person1>/<Person2> tags in the script).
+    output_format: "mp3" or "wav".
+    """
+    out = audio.render(script=script, mode=mode, output_format=output_format)
     return {"ok": True, "audio_path": str(out)}
 
 

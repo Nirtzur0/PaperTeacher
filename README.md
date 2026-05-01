@@ -4,7 +4,9 @@ Daily research-paper podcast, delivered to WhatsApp.
 
 A personal NotebookLM, but actually technical. One paper a day, picked from
 HuggingFace Daily Papers and arXiv, taught in your voice profile by Claude,
-narrated by ElevenLabs, dropped into your chat app by [OpenClaw](https://openclaw.ai).
+narrated locally by [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
+(free, runs on your laptop), dropped into your chat app by
+[OpenClaw](https://openclaw.ai).
 
 ## Architecture
 
@@ -23,7 +25,7 @@ Three pieces, deliberately split so the interesting parts stay portable:
 │ ↓ WhatsApp      │           │  • render_audio        │
 └─────────────────┘           │  • taste profile       │
                               └──────────┬─────────────┘
-                                         │ podcastfy + ElevenLabs
+                                         │ Kokoro-82M (local)
                                          ▼
                                        mp3
 ```
@@ -34,7 +36,8 @@ Three pieces, deliberately split so the interesting parts stay portable:
 - **OpenClaw skill** is just the orchestrator: cron trigger, picks a paper,
   drives Claude through the prompt, sends the result to WhatsApp.
 - **Claude** does discovery selection and script writing. Single-host by
-  default (denser, better for math); two-host as a config flag.
+  default (denser, better for math); two-host as a flag (parses
+  `<Person1>/<Person2>` tags and stitches with two Kokoro voices).
 
 ## Quick start
 
@@ -44,13 +47,13 @@ pip install -e .
 # fill in your taste profile
 $EDITOR config/profile.md
 
-# set keys
-export ELEVENLABS_API_KEY=...        # for audio
-export ANTHROPIC_API_KEY=...         # only if you're not using subscription auth
-
 # run the MCP server (stdio)
 paperteacher
 ```
+
+ffmpeg is needed for mp3 output (via pydub). Install with `brew install ffmpeg`
+or `apt install ffmpeg`. Pass `output_format="wav"` to `render_audio` if you
+want to skip ffmpeg.
 
 Wire into Claude Code:
 
@@ -81,8 +84,8 @@ runner will pick it up.
 - `read_paper(arxiv_id, max_chars?)` — full text via the fallback chain
   (arXiv HTML → HF papers → arXiv abstract). Always returns; flags source.
 - `list_seen()` / `mark_seen(arxiv_id, title?, note?)` — dedupe state.
-- `render_audio(script, mode, tts_model?)` — script → mp3 via podcastfy.
-  `mode` is `single_host` or `two_host`.
+- `render_audio(script, mode, output_format?)` — local Kokoro TTS.
+  `mode`: `single_host` or `two_host`. `output_format`: `mp3` (default) or `wav`.
 
 **Prompt**
 - `teach_paper(arxiv_id, mode?)` — the full teaching prompt, with the
@@ -98,9 +101,10 @@ Other open NotebookLM clones (podcastfy, open-notebooklm, NotebookLlama)
 ship a single PDF-in / mp3-out flow with a generic two-host script writer.
 The shallow banter is what makes them feel weak on technical content.
 
-PaperTeacher uses **podcastfy as the audio engine only** — Claude (with
-your teaching prompt) writes the script, podcastfy just does TTS and
-stitching. That's where the depth comes from.
+PaperTeacher inverts that: **Claude (with your teaching prompt) writes the
+script, Kokoro-82M just narrates it locally.** That's where the depth comes
+from. The audio side is ~100 lines of Python — no cloud TTS, no API keys,
+no per-token cost.
 
 The discovery + taste profile + dedupe + delivery layer is the actual
 value-add and it's what nobody else has built.
@@ -112,4 +116,4 @@ don't need an Anthropic API key — the host authenticates and you pay
 nothing per token. Check your host's docs. PaperTeacher itself never calls
 the Anthropic API directly; the host does.
 
-ElevenLabs and OpenAI TTS still need their own keys.
+TTS runs entirely on your machine via Kokoro — no third-party keys needed.

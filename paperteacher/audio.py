@@ -1,14 +1,64 @@
-"""Render a Claude-written script to audio via podcastfy.
-
-We bypass podcastfy's own LLM script writer. Claude writes the script in
-its native voice (single host or two host), and we hand it to podcastfy as
-a transcript so podcastfy only does TTS + stitching.
-"""
+"""Local TTS via Kokoro-82M. Single-host or stitched two-host."""
 from __future__ import annotations
 
 import datetime as dt
-import tempfile
+import re
 from pathlib import Path
+
+import numpy as np
+import soundfile as sf
+
+# American English voices that ship with Kokoro-82M.
+# Override per-call via the `voices` arg if you want British, etc.
+DEFAULT_VOICES = {
+    "Person1": "af_bella",    # mentor
+    "Person2": "bm_george",   # interlocutor
+}
+SAMPLE_RATE = 24_000
+INTER_TURN_PAUSE_S = 0.35
+
+_pipeline = None
+
+
+def _pipeline_for(lang_code: str = "a"):
+    """Lazy-load Kokoro. lang_code 'a' = American English, 'b' = British."""
+    global _pipeline
+    if _pipeline is None:
+        from kokoro import KPipeline  # imported lazily so the MCP boots fast
+        _pipeline = KPipeline(lang_code=lang_code)
+    return _pipeline
+
+
+def _synth(text: str, voice: str) -> np.ndarray:
+    pipeline = _pipeline_for()
+    chunks: list[np.ndarray] = []
+    for _, _, audio in pipeline(text, voice=voice, speed=1):
+        chunks.append(np.asarray(audio, dtype=np.float32))
+    if not chunks:
+        return np.zeros(0, dtype=np.float32)
+    return np.concatenate(chunks)
+
+
+SEG_RE = re.compile(r"<(Person[12])>(.*?)</\1>", re.DOTALL)
+
+
+def _parse_two_host(script: str) -> list[tuple[str, str]]:
+    segments: list[tuple[str, str]] = []
+    for m in SEG_RE.finditer(script):
+        text = m.group(2).strip()
+        if text:
+            segments.append((m.group(1), text))
+    return segments
+
+
+def _write_mp3(audio: np.ndarray, path: Path, bitrate: str = "64k") -> None:
+    """Write float32 audio in [-1, 1] as mp3 at speech-friendly bitrate."""
+    from pydub import AudioSegment
+
+    pcm = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+    AudioSegment(
+        pcm.tobytes(), frame_rate=SAMPLE_RATE, sample_width=2, channels=1
+    ).export(path, format="mp3", bitrate=bitrate)
 
 
 def render(
@@ -16,52 +66,44 @@ def render(
     *,
     out_dir: Path | str | None = None,
     mode: str = "single_host",
-    tts_model: str = "elevenlabs",
-    config_path: Path | str | None = None,
+    voices: dict | None = None,
+    output_format: str = "mp3",
 ) -> Path:
-    """Render `script` to an mp3 and return its path.
+    """Render `script` to an audio file and return its path.
 
-    Two host modes the script writer should produce:
-      - "single_host": plain narration, one voice. Best for technical depth.
-      - "two_host":   "<Person1>...</Person1><Person2>...</Person2>" XML-ish tags
-                       in the transcript, which podcastfy expects for multi-speaker.
+    mode:
+      - "single_host": one voice. Best for math-heavy papers. Strips any tags.
+      - "two_host":   parses <Person1>/<Person2> tags, renders each turn with
+                      the matching voice, stitches with a short pause.
+    output_format: "mp3" (compact, needs ffmpeg via pydub) or "wav".
     """
-    try:
-        from podcastfy.client import generate_podcast
-    except ImportError as e:
-        raise RuntimeError(
-            "podcastfy not installed. `pip install podcastfy` (and set ELEVENLABS_API_KEY)."
-        ) from e
-
     out = Path(out_dir or Path.home() / ".paperteacher" / "out")
     out.mkdir(parents=True, exist_ok=True)
+    voice_map = {**DEFAULT_VOICES, **(voices or {})}
 
-    transcript_path = Path(tempfile.mkstemp(suffix=".txt")[1])
-    transcript_path.write_text(_format_transcript(script, mode))
-
-    kwargs: dict = {
-        "transcript_file": str(transcript_path),
-        "tts_model": tts_model,
-    }
-    if config_path:
-        kwargs["conversation_config"] = str(config_path)
-
-    audio_path = generate_podcast(**kwargs)
-    final = out / f"paper_{dt.date.today().isoformat()}.mp3"
-    Path(audio_path).rename(final)
-    return final
-
-
-def _format_transcript(script: str, mode: str) -> str:
-    """Podcastfy expects single-speaker text or <Person1>/<Person2> tags."""
     if mode == "single_host":
-        if "<Person1>" in script:
-            return script
-        return f"<Person1>{script}</Person1>"
-    if mode == "two_host":
-        if "<Person1>" not in script:
+        text = re.sub(r"</?Person[12]>", "", script).strip()
+        audio = _synth(text, voice_map["Person1"])
+    elif mode == "two_host":
+        segments = _parse_two_host(script)
+        if not segments:
             raise ValueError(
                 "two_host mode requires <Person1>...</Person1><Person2>...</Person2> tags"
             )
-        return script
-    raise ValueError(f"Unknown mode: {mode}")
+        gap = np.zeros(int(SAMPLE_RATE * INTER_TURN_PAUSE_S), dtype=np.float32)
+        chunks: list[np.ndarray] = []
+        for speaker, text in segments:
+            chunks.append(_synth(text, voice_map[speaker]))
+            chunks.append(gap)
+        audio = np.concatenate(chunks)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    final = out / f"paper_{dt.date.today().isoformat()}.{output_format}"
+    if output_format == "wav":
+        sf.write(final, audio, SAMPLE_RATE)
+    elif output_format == "mp3":
+        _write_mp3(audio, final)
+    else:
+        raise ValueError(f"Unknown output_format: {output_format}")
+    return final

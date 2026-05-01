@@ -1,17 +1,20 @@
 [project]
 name = "paperteacher"
 version = "0.1.0"
-description = "MCP server: discover, summarize, and narrate research papers as a daily technical podcast."
+description = "MCP server: discover, summarize, and narrate research papers as a daily technical podcast (local TTS)."
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.2.0",
     "httpx>=0.27",
     "arxiv>=2.1",
-    "podcastfy>=0.4",
-    "pydantic>=2.7",
-    "python-dotenv>=1.0",
     "feedparser>=6.0",
     "beautifulsoup4>=4.12",
+    "kokoro>=0.7",
+    "soundfile>=0.12",
+    "numpy>=1.26",
+    "pydub>=0.25",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
 ]
 
 [project.scripts]
