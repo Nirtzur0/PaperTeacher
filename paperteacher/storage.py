@@ -46,13 +46,83 @@ def is_seen(arxiv_id: str) -> bool:
     return arxiv_id in seen_ids()
 
 
-def mark_seen(arxiv_id: str, *, title: str = "", note: str = "") -> Path:
+def mark_seen(
+    arxiv_id: str,
+    *,
+    title: str = "",
+    note: str = "",
+    tags: list[str] | None = None,
+) -> Path:
+    """Record a delivered paper. `tags` is a list of free-form topic tags
+    (e.g. ["info-geometry", "optimization", "transformers"]) used by the host
+    to balance topic distribution across deliveries.
+    """
     paths.ensure_layout()
-    row = {"arxiv_id": arxiv_id, "title": title, "note": note, "ts": _now()}
+    row = {
+        "arxiv_id": arxiv_id,
+        "title": title,
+        "note": note,
+        "tags": list(tags or []),
+        "ts": _now(),
+    }
     with paths.SEEN_FILE.open("a") as f:
         f.write(json.dumps(row) + "\n")
-    _emit("seen_marked", arxiv_id=arxiv_id, note=note)
+    _emit("seen_marked", arxiv_id=arxiv_id, note=note, tags=row["tags"])
     return paths.SEEN_FILE
+
+
+# ---- skipped-papers (the backlog) -----------------------------------------
+
+
+def list_skipped() -> list[dict]:
+    if not paths.SKIPPED_FILE.exists():
+        return []
+    return [
+        json.loads(line)
+        for line in paths.SKIPPED_FILE.read_text().splitlines()
+        if line.strip()
+    ]
+
+
+def skipped_ids() -> set[str]:
+    return {row["arxiv_id"] for row in list_skipped() if "arxiv_id" in row}
+
+
+def mark_skipped(
+    arxiv_id: str,
+    *,
+    title: str = "",
+    tags: list[str] | None = None,
+    reason: str = "",
+) -> Path:
+    """Record a candidate that was considered but NOT delivered. Lets the host
+    revisit the backlog later for topic balance and avoids re-evaluating the
+    same paper from scratch every day.
+    """
+    paths.ensure_layout()
+    row = {
+        "arxiv_id": arxiv_id,
+        "title": title,
+        "tags": list(tags or []),
+        "reason": reason,
+        "ts": _now(),
+    }
+    with paths.SKIPPED_FILE.open("a") as f:
+        f.write(json.dumps(row) + "\n")
+    _emit("skipped_marked", arxiv_id=arxiv_id, reason=reason, tags=row["tags"])
+    return paths.SKIPPED_FILE
+
+
+def topic_distribution(window: int = 30) -> dict[str, int]:
+    """Tag → count over the last `window` delivered papers. Use this when
+    picking the next paper to balance underrepresented topics.
+    """
+    rows = list_seen()[-window:]
+    counts: dict[str, int] = {}
+    for r in rows:
+        for t in r.get("tags", []):
+            counts[t] = counts.get(t, 0) + 1
+    return counts
 
 
 # ---- outlines -------------------------------------------------------------

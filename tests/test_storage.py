@@ -99,6 +99,43 @@ def test_audit_save_returns_decision(paperteacher_home):
     assert audit.recommendation == "ship"
 
 
+def test_seen_carries_tags(paperteacher_home):
+    storage = _fresh_storage()
+    storage.mark_seen("a", title="Paper A", tags=["info-geometry", "optimization"])
+    storage.mark_seen("b", title="Paper B", tags=["rl"])
+    rows = storage.list_seen()
+    assert rows[0]["tags"] == ["info-geometry", "optimization"]
+    assert rows[1]["tags"] == ["rl"]
+
+
+def test_topic_distribution_counts_tags(paperteacher_home):
+    storage = _fresh_storage()
+    storage.mark_seen("a", tags=["info-geometry", "optimization"])
+    storage.mark_seen("b", tags=["info-geometry", "rl"])
+    storage.mark_seen("c", tags=["rl"])
+    dist = storage.topic_distribution()
+    assert dist == {"info-geometry": 2, "optimization": 1, "rl": 2}
+
+
+def test_topic_distribution_window_only_recent(paperteacher_home):
+    storage = _fresh_storage()
+    for i in range(40):
+        storage.mark_seen(str(i), tags=["old"] if i < 30 else ["recent"])
+    dist = storage.topic_distribution(window=10)
+    assert dist == {"recent": 10}  # last 10 deliveries only
+
+
+def test_skipped_round_trip(paperteacher_home):
+    storage = _fresh_storage()
+    assert storage.list_skipped() == []
+    storage.mark_skipped("a", title="Paper A", tags=["empirical"], reason="benchmark-only")
+    storage.mark_skipped("b", title="Paper B", tags=["theory"], reason="too-narrow")
+    rows = storage.list_skipped()
+    assert {r["arxiv_id"] for r in rows} == {"a", "b"}
+    assert storage.skipped_ids() == {"a", "b"}
+    assert rows[0]["reason"] == "benchmark-only"
+
+
 def test_event_log_appended(paperteacher_home):
     storage = _fresh_storage()
     storage.mark_seen("2603.20105")

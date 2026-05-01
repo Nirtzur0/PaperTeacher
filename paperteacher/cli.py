@@ -192,7 +192,9 @@ app.add_typer(seen, name="seen")
 @seen.command("list")
 def seen_list() -> None:
     for row in storage.list_seen():
-        typer.echo(f"{row['arxiv_id']}  {row.get('ts','')}  {row.get('title','')}")
+        tags = ",".join(row.get("tags", []))
+        tags_part = f"  [{tags}]" if tags else ""
+        typer.echo(f"{row['arxiv_id']}  {row.get('ts','')}{tags_part}  {row.get('title','')}")
 
 
 @seen.command("mark")
@@ -200,9 +202,50 @@ def seen_mark(
     arxiv_id: str,
     title: str = typer.Option(""),
     note: str = typer.Option(""),
+    tags: str = typer.Option("", help="comma-separated topic tags"),
 ) -> None:
-    storage.mark_seen(arxiv_id, title=title, note=note)
-    typer.echo(f"marked {arxiv_id} as seen")
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    storage.mark_seen(arxiv_id, title=title, note=note, tags=tag_list)
+    typer.echo(f"marked {arxiv_id} as seen" + (f"  [{','.join(tag_list)}]" if tag_list else ""))
+
+
+@seen.command("topics")
+def seen_topics(window: int = typer.Option(30)) -> None:
+    """Tag distribution over the last N delivered papers."""
+    dist = storage.topic_distribution(window=window)
+    if not dist:
+        typer.echo("(no tags recorded yet)")
+        return
+    for tag, count in sorted(dist.items(), key=lambda x: -x[1]):
+        typer.echo(f"  {count:>3}  {tag}")
+
+
+# ---- skipped (backlog) ---------------------------------------------------
+
+skipped = typer.Typer(help="Manage the skipped-papers backlog.")
+app.add_typer(skipped, name="skipped")
+
+
+@skipped.command("list")
+def skipped_list() -> None:
+    for row in storage.list_skipped():
+        tags = ",".join(row.get("tags", []))
+        tags_part = f"  [{tags}]" if tags else ""
+        typer.echo(
+            f"{row['arxiv_id']}  {row.get('ts','')}{tags_part}  {row.get('reason','')}  {row.get('title','')}"
+        )
+
+
+@skipped.command("mark")
+def skipped_mark(
+    arxiv_id: str,
+    title: str = typer.Option(""),
+    tags: str = typer.Option(""),
+    reason: str = typer.Option(""),
+) -> None:
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    storage.mark_skipped(arxiv_id, title=title, tags=tag_list, reason=reason)
+    typer.echo(f"marked {arxiv_id} as skipped")
 
 
 # ---- entry point ---------------------------------------------------------

@@ -21,13 +21,20 @@ combine them in your head.
 ## Stage 0 — pick the paper
 
 1. Call `paperteacher.fetch_trending_papers` with
-   `arxiv_categories=["cs.LG", "stat.ML", "math-ph"]`. Already-seen papers
-   are filtered server-side.
+   `arxiv_categories=["cs.LG", "stat.ML", "math-ph"]`. Already-seen and
+   already-skipped papers are filtered server-side.
 2. Read the listener's profile from the `profile://taste` resource.
-3. Pick ONE candidate that best matches `selection_bias` in the profile.
-   Prefer mathematical depth, surprising ideas, last 2-4 weeks. If nothing
-   matches, take the highest-scored candidate and note that in the hook.
-4. Call `paperteacher.read_paper(arxiv_id=...)`. If `source == "arxiv_abs"`
+3. Call `paperteacher.topic_distribution(window=30)` to see which topic
+   tags have been over- or under-represented in recent deliveries. Favor
+   underrepresented topics — keep the diet diverse over time.
+4. Pick ONE candidate that best matches `selection_bias` in the profile
+   AND is not over-saturated in the topic distribution. Prefer mathematical
+   depth, surprising ideas, last 2-4 weeks. If nothing matches, take the
+   highest-scored candidate and note that in the hook.
+5. For every candidate you considered but did NOT pick, call
+   `paperteacher.mark_skipped(arxiv_id=..., title=..., tags=[...],
+   reason=...)`. This builds a backlog you can revisit on slow news days.
+6. Call `paperteacher.read_paper(arxiv_id=...)`. If `source == "arxiv_abs"`
    you only have the abstract — proceed but flag this in stage 1's outline
    and in the WhatsApp hook.
 
@@ -49,9 +56,14 @@ combine them in your head.
    coverage requirements: every `critical` item gets full decomposition,
    every `important` item gets the trick + bridge, every `mention` item gets
    one substantive sentence. Banned phrases are listed.
-9. Produce the script. Single-host is the default — denser, better for math.
-   Switch to `mode="two_host"` only when the user has explicitly asked for
-   conversational delivery this week.
+9. Produce the script. **Default is `mode="two_host"`** — Person1 is the
+   "professor friend" mentor (warm, opinionated, broader-context takes,
+   honest about what's actually new vs. clever reframing). Person2 is a
+   peer-level interlocutor (clarifying, challenging, occasionally wrong
+   and corrected — never cheerleading). Each turn is 1-3 sentences for
+   natural cadence. Single-host is for episodes where the math is so
+   dense that two-voice banter would dilute coverage; default to two_host.
+   Target ~1750 words (~10 min at the configured speaking rate).
 10. Call `paperteacher.save_script(arxiv_id=..., script=...)`.
 
 ## Stage 3 — audit, and regenerate if glossed
@@ -69,15 +81,19 @@ combine them in your head.
 
 ## Stage 4 — render and deliver
 
-14. Call `paperteacher.render_audio(arxiv_id=..., mode="single_host")`. The
+14. Call `paperteacher.render_audio(arxiv_id=..., mode="two_host")`. The
     server loads the saved script and renders via the configured TTS backend
     (defaults to Kokoro; set `PAPERTEACHER_TTS=vertex` or pass `backend="vertex"`
-    to use Google Vertex AI Chirp 3 HD voices). Returns an mp3 path.
+    to use Google Vertex AI Chirp 3 HD voices). Default speaking rate is 1.1x
+    for a livelier pace. Returns an mp3 path.
 15. Send to WhatsApp as TWO messages:
     - First (text): `*{title}* — {2-sentence hook}.\nhttps://arxiv.org/abs/{arxiv_id}`
     - Second (voice note): the mp3 from step 14.
-16. Call `paperteacher.mark_seen(arxiv_id=..., title=..., note="audit:complete")`
-    (or `audit:partial` if you shipped a partial coverage script).
+16. Call `paperteacher.mark_seen(arxiv_id=..., title=..., note="audit:complete",
+    tags=[...])`. Use 2-4 topic tags from a stable vocabulary
+    (`info-geometry`, `optimization`, `attention`, `rl`, `interpretability`,
+    `architecture`, `theory`, `empirical`, etc.) so `topic_distribution` is
+    meaningful across episodes.
 
 ## Failure modes
 

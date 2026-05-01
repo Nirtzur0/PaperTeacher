@@ -104,8 +104,13 @@ class VertexBackend:
     # Vertex sync TTS hard limit is 5000 bytes; leave headroom for safety.
     MAX_BYTES_PER_REQUEST = 4500
 
-    def __init__(self, language_code: str = "en-US") -> None:
+    def __init__(
+        self,
+        language_code: str = "en-US",
+        speaking_rate: float = paths.DEFAULT_TTS_SPEAKING_RATE,
+    ) -> None:
         self.language_code = language_code
+        self.speaking_rate = speaking_rate
         self._client: object | None = None
 
     def _ensure_client(self) -> object:
@@ -180,6 +185,7 @@ class VertexBackend:
         audio_config = tts.AudioConfig(
             audio_encoding=tts.AudioEncoding.LINEAR16,
             sample_rate_hertz=self.sample_rate_hz,
+            speaking_rate=self.speaking_rate,
         )
         resp = client.synthesize_speech(
             input=synthesis_input,

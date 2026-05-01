@@ -20,6 +20,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 AUDITS_DIR = ROOT / "audits"
 AUDIO_DIR = ROOT / "audio"
 SEEN_FILE = ROOT / "seen.jsonl"
+SKIPPED_FILE = ROOT / "skipped.jsonl"  # candidates considered but not delivered
 EVENT_LOG = ROOT / "pipeline.jsonl"
 
 # Profile lives under PAPERTEACHER_HOME by default — NOT in the cwd, so the
@@ -52,4 +53,7 @@ DEFAULT_TTS_BACKEND = os.environ.get("PAPERTEACHER_TTS", "kokoro")
 
 DEFAULT_MAX_PAPER_CHARS = 120_000
 DEFAULT_DISCOVERY_LIMIT = 20
-TARGET_SCRIPT_WORDS = 2500
+# ~10 min target at Vertex Chirp 3 HD with speaking_rate 1.1 (~165 wpm × 1.1 ≈ 180 wpm).
+TARGET_SCRIPT_WORDS = 1750
+# Slightly faster than default — keeps the listener leaning forward without rushing.
+DEFAULT_TTS_SPEAKING_RATE = 1.1

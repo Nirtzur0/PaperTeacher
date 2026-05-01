@@ -52,8 +52,8 @@ async def fetch_trending_papers(
 ) -> list[dict]:
     """Discover candidate papers from HF Daily + arXiv RSS. Filters out seen."""
     cands = await discovery.discover(arxiv_categories=arxiv_categories or [], limit=limit)
-    seen = storage.seen_ids()
-    return [c.to_dict() for c in cands if c.arxiv_id not in seen]
+    excluded = storage.seen_ids() | storage.skipped_ids()
+    return [c.to_dict() for c in cands if c.arxiv_id not in excluded]
 
 
 @mcp.tool()
@@ -138,15 +138,57 @@ def save_audit(arxiv_id: str, audit_yaml: str) -> dict:
 
 @mcp.tool()
 def list_seen() -> list[dict]:
-    """Papers already delivered."""
+    """Papers already delivered. Each row carries `tags` (topic tags) so the
+    host can compute topic distribution for balanced selection.
+    """
     return storage.list_seen()
 
 
 @mcp.tool()
-def mark_seen(arxiv_id: str, title: str = "", note: str = "") -> dict:
-    """Record that a paper has been delivered."""
-    storage.mark_seen(arxiv_id, title=title, note=note)
+def mark_seen(
+    arxiv_id: str,
+    title: str = "",
+    note: str = "",
+    tags: list[str] | None = None,
+) -> dict:
+    """Record that a paper has been delivered. `tags` is a list of free-form
+    topic tags (e.g. ["info-geometry", "optimization"]) used to balance
+    coverage across episodes.
+    """
+    storage.mark_seen(arxiv_id, title=title, note=note, tags=tags)
     return {"ok": True, "arxiv_id": arxiv_id}
+
+
+@mcp.tool()
+def list_skipped() -> list[dict]:
+    """Candidates considered but NOT delivered. The backlog. Use this to
+    revisit interesting papers that lost the daily slot.
+    """
+    return storage.list_skipped()
+
+
+@mcp.tool()
+def mark_skipped(
+    arxiv_id: str,
+    title: str = "",
+    tags: list[str] | None = None,
+    reason: str = "",
+) -> dict:
+    """Record a candidate that was considered but skipped today. Adds it to
+    the backlog. Server filters skipped IDs out of fetch_trending_papers by
+    default, but you can revisit a skipped paper by calling read_paper /
+    extract_outline directly with its ID.
+    """
+    storage.mark_skipped(arxiv_id, title=title, tags=tags, reason=reason)
+    return {"ok": True, "arxiv_id": arxiv_id}
+
+
+@mcp.tool()
+def topic_distribution(window: int = 30) -> dict:
+    """Tag → count over the last `window` delivered papers. Use when picking
+    the next paper to favor underrepresented topics.
+    """
+    return storage.topic_distribution(window=window)
 
 
 # ---- tools: audio --------------------------------------------------------
