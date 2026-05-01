@@ -92,12 +92,17 @@ class VertexBackend:
     Auth: Application Default Credentials. Run `gcloud auth application-default
     login` once, or set GOOGLE_APPLICATION_CREDENTIALS to a service-account
     JSON path. Project is inferred from ADC; override with GOOGLE_CLOUD_PROJECT.
+
+    The synchronous API caps inputs at 5000 bytes; longer scripts are split on
+    paragraph/sentence boundaries and the resulting audio is concatenated.
     """
 
     name = "vertex"
     # Vertex returns LINEAR16 PCM at the rate we ask for. Match Kokoro for
     # mixing-friendly stitching (so the inter-turn pause has the same rate).
     sample_rate_hz = paths.SAMPLE_RATE_HZ
+    # Vertex sync TTS hard limit is 5000 bytes; leave headroom for safety.
+    MAX_BYTES_PER_REQUEST = 4500
 
     def __init__(self, language_code: str = "en-US") -> None:
         self.language_code = language_code
@@ -117,7 +122,54 @@ class VertexBackend:
             self._mod = texttospeech
         return self._client
 
+    def _chunk(self, text: str) -> list[str]:
+        """Split text into chunks under MAX_BYTES_PER_REQUEST, on paragraph
+        first, then sentence boundaries if a paragraph is still too long.
+        """
+        max_bytes = self.MAX_BYTES_PER_REQUEST
+        if len(text.encode("utf-8")) <= max_bytes:
+            return [text]
+        import re
+        chunks: list[str] = []
+        # paragraphs first
+        for para in text.split("\n\n"):
+            para = para.strip()
+            if not para:
+                continue
+            if len(para.encode("utf-8")) <= max_bytes:
+                chunks.append(para)
+                continue
+            # split paragraph on sentence boundaries
+            sentences = re.split(r"(?<=[.!?])\s+", para)
+            buf = ""
+            for s in sentences:
+                candidate = (buf + " " + s).strip() if buf else s
+                if len(candidate.encode("utf-8")) > max_bytes:
+                    if buf:
+                        chunks.append(buf)
+                    if len(s.encode("utf-8")) > max_bytes:
+                        # pathologically long sentence: hard-split by bytes
+                        encoded = s.encode("utf-8")
+                        for i in range(0, len(encoded), max_bytes):
+                            chunks.append(encoded[i:i+max_bytes].decode("utf-8", "ignore"))
+                        buf = ""
+                    else:
+                        buf = s
+                else:
+                    buf = candidate
+            if buf:
+                chunks.append(buf)
+        return chunks
+
     def synth(self, text: str, voice: str) -> np.ndarray:
+        chunks = self._chunk(text)
+        if len(chunks) == 1:
+            return self._synth_chunk(chunks[0], voice)
+        # synth each chunk, concatenate (no inter-chunk gap; chunks are adjacent prose)
+        parts = [self._synth_chunk(c, voice) for c in chunks]
+        return np.concatenate(parts) if parts else np.zeros(0, dtype=np.float32)
+
+    def _synth_chunk(self, text: str, voice: str) -> np.ndarray:
         client = self._ensure_client()
         tts = self._mod  # set in _ensure_client
         synthesis_input = tts.SynthesisInput(text=text)
