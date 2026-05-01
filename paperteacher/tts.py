@@ -107,9 +107,15 @@ class VertexBackend:
     def __init__(
         self,
         language_code: str = "en-US",
-        speaking_rate: float = paths.DEFAULT_TTS_SPEAKING_RATE,
+        speaking_rate: float | None = None,
     ) -> None:
         self.language_code = language_code
+        # Default rate comes from the listener profile so changing it in
+        # one place actually moves the dial. Lazy import: profile imports
+        # paths, paths is already loaded by the time this constructor runs.
+        if speaking_rate is None:
+            from . import profile as _profile
+            speaking_rate = _profile.load().speaking_rate
         self.speaking_rate = speaking_rate
         self._client: object | None = None
 

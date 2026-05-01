@@ -21,8 +21,8 @@ combine them in your head.
 ## Stage 0 — pick the paper
 
 1. Call `paperteacher.fetch_trending_papers` with
-   `arxiv_categories=["cs.LG", "stat.ML", "math-ph"]`. Already-seen and
-   already-skipped papers are filtered server-side.
+   `arxiv_categories=["cs.LG", "cs.CL", "cs.AI", "stat.ML", "math.ST", "math.OC"]`.
+   Already-seen and already-skipped papers are filtered server-side.
 2. Read the listener's profile from the `profile://taste` resource.
 3. Call `paperteacher.topic_distribution(window=30)` to see which topic
    tags have been over- or under-represented in recent deliveries. Favor
@@ -51,11 +51,12 @@ combine them in your head.
 
 ## Stage 2 — write the script with mandatory coverage
 
-8. Invoke `paperteacher.teach_from_outline(arxiv_id=..., mode="single_host")`.
-   This loads the saved outline and returns a long instruction with strict
-   coverage requirements: every `critical` item gets full decomposition,
-   every `important` item gets the trick + bridge, every `mention` item gets
-   one substantive sentence. Banned phrases are listed.
+8. Invoke `paperteacher.teach_from_outline(arxiv_id=..., mode="two_host")`
+   (or `mode="single_host"` if step 9 says so). This loads the saved outline
+   and returns a long instruction with strict coverage requirements: every
+   `critical` item gets full decomposition, every `important` item gets the
+   trick + bridge, every `mention` item gets one substantive sentence.
+   Banned phrases are listed.
 9. Produce the script. **Default is `mode="two_host"`** — Person1 is the
    "professor friend" mentor (warm, opinionated, broader-context takes,
    honest about what's actually new vs. clever reframing). Person2 is a

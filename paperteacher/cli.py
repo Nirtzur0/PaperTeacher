@@ -13,8 +13,9 @@ from pathlib import Path
 
 import typer
 
-from . import audio, paths, storage, tts
-from .domain import active_domain
+from . import audio, paths, preferred as preferred_mod, profile, storage, tts
+from .domain import discover_all, domain_for
+from .domain import read_paper as _read_routed
 
 app = typer.Typer(
     add_completion=False,
@@ -22,12 +23,6 @@ app = typer.Typer(
     no_args_is_help=True,
     pretty_exceptions_show_locals=False,
 )
-
-
-def _profile() -> str:
-    if paths.PROFILE_PATH.exists():
-        return paths.PROFILE_PATH.read_text()
-    return "(no profile.md found — generic ML defaults)"
 
 
 # ---- discover -------------------------------------------------------------
@@ -39,25 +34,36 @@ def discover(
     limit: int = typer.Option(paths.DEFAULT_DISCOVERY_LIMIT),
     json_output: bool = typer.Option(False, "--json", help="emit JSON instead of a table"),
 ) -> None:
-    """List candidate papers (HF Daily + arXiv RSS), filtering already-seen."""
+    """List candidate papers across active packs in parallel, filtering
+    already-seen and already-skipped (matching server behavior). For ML:
+    HF Daily + arXiv RSS.
+    """
     cats = [c.strip() for c in categories.split(",") if c.strip()]
-    cands = asyncio.run(active_domain().discover(arxiv_categories=cats, limit=limit))
-    seen = storage.seen_ids()
-    cands = [c for c in cands if c.arxiv_id not in seen]
+    cands = asyncio.run(discover_all(arxiv_categories=cats, limit=limit))
+    excluded = storage.excluded_ids()
+    cands = [c for c in cands if c.arxiv_id not in excluded]
+    pref = preferred_mod.load()
+    if pref is not None:
+        preferred_mod.apply(cands, pref)
     if json_output:
         typer.echo(json.dumps([c.to_dict() for c in cands], indent=2))
         return
     for c in cands:
-        typer.echo(f"{c.arxiv_id}  [{c.source:>14}]  score={c.score:>5.0f}  {c.title}")
+        dom = f" {c.domain}" if c.domain else ""
+        typer.echo(f"{c.arxiv_id}  [{c.source:>14}]{dom}  score={c.score:>5.0f}  {c.title}")
 
 
 # ---- read -----------------------------------------------------------------
 
 
 @app.command()
-def read(arxiv_id: str, max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS) -> None:
+def read(
+    arxiv_id: str,
+    max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS,
+    domain: str = typer.Option("", help="domain pack hint (e.g. 'ml')"),
+) -> None:
     """Print the paper's full text (or abstract if HTML unavailable)."""
-    p = asyncio.run(active_domain().read(arxiv_id, max_chars=max_chars))
+    p = asyncio.run(_read_routed(arxiv_id, max_chars=max_chars, hint=domain or None))
     typer.echo(f"# source: {p.source}  truncated: {p.truncated}\n# title: {p.title}\n")
     typer.echo(p.text)
 
@@ -71,13 +77,40 @@ app.add_typer(prompt, name="prompt")
 @prompt.command("extract")
 def prompt_extract(arxiv_id: str) -> None:
     """STAGE 1 prompt — feed paper to your LLM, expect YAML outline back."""
-    domain = active_domain()
-    paper = asyncio.run(domain.read(arxiv_id))
+    paper = asyncio.run(_read_routed(arxiv_id))
+    domain = domain_for(arxiv_id)
     typer.echo(domain.render_extract(
         arxiv_id=arxiv_id,
         title=paper.title,
-        taste_profile=_profile(),
+        taste_profile=profile.read_text_for_prompt(),
         paper_text=paper.text,
+    ))
+
+
+@prompt.command("plan")
+def prompt_plan(arxiv_id: str) -> None:
+    """STAGE 1.5 prompt — design the macro arc + persona stance.
+
+    Requires a saved outline. Optional but recommended: when a plan is saved
+    via `save-plan`, the teach prompt drops its prescriptive 7-act structure
+    and follows the plan's arc instead — different papers get different shapes.
+    """
+    outline_yaml = storage.load_outline_yaml(arxiv_id)
+    if outline_yaml is None:
+        typer.echo(f"error: no outline for {arxiv_id} — run extract + save-outline first", err=True)
+        raise typer.Exit(1)
+    domain = domain_for(arxiv_id)
+    render = getattr(domain, "render_plan", None)
+    if render is None:
+        typer.echo(f"error: domain {domain.name!r} has no planner stage", err=True)
+        raise typer.Exit(1)
+    paper = asyncio.run(_read_routed(arxiv_id))
+    typer.echo(render(
+        arxiv_id=arxiv_id,
+        title=paper.title,
+        taste_profile=profile.read_text_for_prompt(),
+        paper_text=paper.text,
+        outline_yaml=outline_yaml,
     ))
 
 
@@ -86,20 +119,24 @@ def prompt_teach(
     arxiv_id: str,
     mode: str = typer.Option("single_host", help="single_host or two_host"),
 ) -> None:
-    """STAGE 2 prompt — requires a saved outline."""
+    """STAGE 2 prompt — requires a saved outline. If a plan has also been
+    saved (stage 1.5), it is loaded automatically and drives the macro arc.
+    """
     outline_yaml = storage.load_outline_yaml(arxiv_id)
     if outline_yaml is None:
         typer.echo(f"error: no outline for {arxiv_id} — run extract + save-outline first", err=True)
         raise typer.Exit(1)
-    domain = active_domain()
-    paper = asyncio.run(domain.read(arxiv_id))
+    plan_yaml = storage.load_plan_yaml(arxiv_id)  # None when no plan saved
+    paper = asyncio.run(_read_routed(arxiv_id))
+    domain = domain_for(arxiv_id)
     typer.echo(domain.render_teach(
         arxiv_id=arxiv_id,
         title=paper.title,
-        taste_profile=_profile(),
+        taste_profile=profile.read_text_for_prompt(),
         paper_text=paper.text,
         outline_yaml=outline_yaml,
         mode=mode,
+        plan_yaml=plan_yaml,
     ))
 
 
@@ -112,7 +149,7 @@ def prompt_audit(arxiv_id: str) -> None:
         missing = [n for n, v in [("outline", outline_yaml), ("script", script)] if v is None]
         typer.echo(f"error: missing {', '.join(missing)} for {arxiv_id}", err=True)
         raise typer.Exit(1)
-    typer.echo(active_domain().render_audit(outline_yaml=outline_yaml, script=script))
+    typer.echo(domain_for(arxiv_id).render_audit(outline_yaml=outline_yaml, script=script))
 
 
 # ---- save (stages 1, 2, 3 outputs) ---------------------------------------
@@ -140,6 +177,25 @@ def save_outline(
         bits.append(f"{len(eqs)} equations")
     if callable(getattr(outline, "critical_ids", None)):
         bits.append(f"{len(outline.critical_ids())} critical")
+    suffix = f"  ({', '.join(bits)})" if bits else ""
+    typer.echo(f"saved {p}{suffix}")
+
+
+@app.command("save-plan")
+def save_plan(
+    arxiv_id: str,
+    file: Path | None = typer.Option(None, "-f", "--file", help="read YAML from file (else stdin)"),
+) -> None:
+    """Validate + save the LLM's episode plan output (stage 1.5)."""
+    raw = _read_input(file)
+    p, plan = storage.save_plan(arxiv_id, raw)
+    bits: list[str] = []
+    arc = getattr(plan, "arc", None)
+    if isinstance(arc, list):
+        bits.append(f"{len(arc)} segments")
+    takes = getattr(plan, "takes", None)
+    if isinstance(takes, list):
+        bits.append(f"{len(takes)} takes")
     suffix = f"  ({', '.join(bits)})" if bits else ""
     typer.echo(f"saved {p}{suffix}")
 

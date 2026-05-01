@@ -1,10 +1,14 @@
-"""ML domain pack.
+"""Econ / finance domain pack.
 
-Subject coverage: ML / CS theory and practice papers from arXiv (cs.LG,
-cs.CL, cs.AI, stat.ML, math.ST, math.OC) and HuggingFace Daily, with
-Semantic Scholar as a citation-weighted source. The outline schema centers
-on equations and concepts; the prompts enforce voice-first reading rules
-and exhaustive equation coverage.
+Subject coverage: economics + quantitative finance papers from arXiv
+(econ.GN, econ.TH, econ.EM, q-fin.*) and NBER's new-working-papers RSS.
+The outline schema is built around the conventions of modern empirical
+econ — identification strategy, specifications, estimates with explicit
+economic-magnitude translations, robustness checks — plus structural-model
+fields for theory papers and a factor-model nest for asset pricing. The
+prompts enforce voice-first rules tuned to econ glosses ("X causes Y"
+without identification, "controlled for everything", "the result is robust"
+without naming the checks).
 """
 from __future__ import annotations
 
@@ -13,10 +17,10 @@ from . import discovery, models, prompts, reader
 from ...domain import register_domain
 
 
-class MLDomain:
-    """The default ML domain pack."""
+class EconDomain:
+    """The econ / finance domain pack."""
 
-    name = "ml"
+    name = "econ"
     OutlineModel = models.Outline
     PlanModel = models.EpisodePlan  # opt-in planner stage
 
@@ -36,4 +40,4 @@ class MLDomain:
     read = staticmethod(reader.read_paper)
 
 
-register_domain("ml", MLDomain)
+register_domain("econ", EconDomain)

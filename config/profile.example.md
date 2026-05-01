@@ -2,8 +2,8 @@
 
 # Active domain pack. Selects which outline schema, prompt templates,
 # discovery sources and reader the pipeline uses. Override with the
-# PAPERTEACHER_DOMAIN env var. Currently shipped: "ml". Future: "physics",
-# "philosophy", "biology", "econ", ...
+# PAPERTEACHER_DOMAIN env var. Currently shipped: "ml", "physics",
+# "neuro", "econ". Use `domains: a, b` for multi-pack runs.
 domain: ml
 
 name: Nir
@@ -36,8 +36,15 @@ length_target_minutes: 15
 
 discovery_sources_priority:
   - huggingface daily papers
-  - arxiv cs.LG, stat.ML, math-ph
+  - arxiv cs.LG, cs.CL, cs.AI, stat.ML, math.ST, math.OC
+  - semantic scholar (recent influential)
   - DeepMind / Anthropic / Google Research blogs
+
+# Override via the structured `arxiv_categories:` line below. The default set
+# (cs.LG, cs.CL, cs.AI, stat.ML, math.ST, math.OC) covers ML theory, NLP/LLMs,
+# RL/agents, statistics, and optimization. Drop categories you don't care
+# about; the noise/signal trade-off is real.
+# arxiv_categories: cs.LG, cs.CL, stat.ML
 
 selection_bias:
   - prefer papers with mathematical depth (real derivations, not just benchmarks)

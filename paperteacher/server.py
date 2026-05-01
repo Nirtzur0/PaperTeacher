@@ -13,17 +13,12 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from . import audio, paths, storage, tts
-from .domain import ParseError, active_domain
+from . import audio, paths, preferred as preferred_mod, profile, storage, tts
+from .domain import ParseError, discover_all, domain_for
+from .domain import read_paper as _read_routed
 
 log = logging.getLogger(__name__)
 mcp = FastMCP("paperteacher")
-
-
-def _profile_text() -> str:
-    if paths.PROFILE_PATH.exists():
-        return paths.PROFILE_PATH.read_text()
-    return "(no profile.md found — using generic ML/CS defaults)"
 
 
 # ---- resources ------------------------------------------------------------
@@ -32,7 +27,7 @@ def _profile_text() -> str:
 @mcp.resource("profile://taste")
 def taste_profile() -> str:
     """The listener's taste profile (fields, known topics, voice preferences)."""
-    return _profile_text()
+    return profile.read_text_for_prompt()
 
 
 @mcp.resource("outline://{arxiv_id}")
@@ -50,20 +45,32 @@ async def fetch_trending_papers(
     arxiv_categories: list[str] | None = None,
     limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
 ) -> list[dict]:
-    """Discover candidate papers via the active domain pack's discovery sources.
-    For ML: HF Daily + arXiv RSS. Other domains route through their own
-    fetchers. Filters out seen and skipped IDs server-side.
+    """Discover candidate papers across all active domain packs in parallel.
+    For ML: HF Daily + arXiv RSS. Other configured packs route through their
+    own fetchers. Each candidate carries `domain` so the host can route
+    follow-up calls back to the originating pack. Filters out seen and
+    skipped IDs server-side.
     """
-    domain = active_domain()
-    cands = await domain.discover(arxiv_categories=arxiv_categories or [], limit=limit)
-    excluded = storage.seen_ids() | storage.skipped_ids()
-    return [c.to_dict() for c in cands if c.arxiv_id not in excluded]
+    cands = await discover_all(arxiv_categories=arxiv_categories or [], limit=limit)
+    excluded = storage.excluded_ids()
+    cands = [c for c in cands if c.arxiv_id not in excluded]
+    pref = preferred_mod.load()
+    if pref is not None:
+        preferred_mod.apply(cands, pref)
+    return [c.to_dict() for c in cands]
 
 
 @mcp.tool()
-async def read_paper(arxiv_id: str, max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS) -> dict:
-    """Fetch full paper text via the active domain pack's reader."""
-    p = await active_domain().read(arxiv_id, max_chars=max_chars)
+async def read_paper(
+    arxiv_id: str,
+    max_chars: int = paths.DEFAULT_MAX_PAPER_CHARS,
+    domain: str | None = None,
+) -> dict:
+    """Fetch full paper text. `domain` is the originating pack (from a
+    Candidate's `domain` field); if omitted, routing falls back to the
+    paper's recorded pack or the first active one.
+    """
+    p = await _read_routed(arxiv_id, max_chars=max_chars, hint=domain)
     return {
         "arxiv_id": p.arxiv_id,
         "title": p.title,
@@ -105,6 +112,39 @@ def get_outline(arxiv_id: str) -> dict:
     """Load the canonical outline YAML previously saved."""
     body = storage.load_outline_yaml(arxiv_id)
     return {"ok": body is not None, "outline_yaml": body or ""}
+
+
+@mcp.tool()
+def save_plan(arxiv_id: str, plan_yaml: str) -> dict:
+    """Validate + persist the YAML episode plan from stage 1.5.
+
+    The planner stage is OPT-IN per domain pack — returns
+    {ok: false, error: "no planner stage"} for packs that haven't implemented
+    `parse_plan`. When a plan is saved, the teach prompt drops its default
+    arc and follows the plan's structure instead.
+    """
+    try:
+        path, plan = storage.save_plan(arxiv_id, plan_yaml)
+    except ParseError as e:
+        return {"ok": False, "error": str(e), "raw_preview": plan_yaml[:500]}
+    except NotImplementedError as e:
+        return {"ok": False, "error": str(e)}
+    stats: dict = {}
+    arc = getattr(plan, "arc", None)
+    if isinstance(arc, list):
+        stats["segments"] = len(arc)
+        stats["roles"] = [getattr(s, "role", None) for s in arc]
+    takes = getattr(plan, "takes", None)
+    if isinstance(takes, list):
+        stats["takes_count"] = len(takes)
+    return {"ok": True, "path": str(path), "stats": stats}
+
+
+@mcp.tool()
+def get_plan(arxiv_id: str) -> dict:
+    """Load the canonical episode plan YAML previously saved (if any)."""
+    body = storage.load_plan_yaml(arxiv_id)
+    return {"ok": body is not None, "plan_yaml": body or ""}
 
 
 @mcp.tool()
@@ -227,22 +267,55 @@ def render_audio(
     return {"ok": True, "audio_path": str(out)}
 
 
-# ---- prompts: the three pipeline stages ----------------------------------
+# ---- prompts: the pipeline stages ----------------------------------------
 
 
 @mcp.prompt()
 async def extract_outline(arxiv_id: str) -> str:
     """STAGE 1. Read the paper and produce a structured YAML outline. The
-    outline shape is determined by the active domain pack — for ML this is
+    outline shape is determined by the paper's domain pack — for ML this is
     the equation+concept schema; other domains use their own contracts.
     """
-    domain = active_domain()
-    p = await domain.read(arxiv_id)
+    p = await _read_routed(arxiv_id)
+    domain = domain_for(arxiv_id)
     return domain.render_extract(
         arxiv_id=arxiv_id,
         title=p.title,
-        taste_profile=_profile_text(),
+        taste_profile=profile.read_text_for_prompt(),
         paper_text=p.text,
+    )
+
+
+@mcp.prompt()
+async def plan_episode(arxiv_id: str) -> str:
+    """STAGE 1.5 (optional). Design the macro arc + persona stance for the
+    episode. Requires a saved outline. When the resulting plan is saved via
+    `save_plan`, the teach prompt drops its default arc and follows the plan
+    instead — different papers get different shapes.
+
+    Domain packs that haven't opted into the planner stage return an error
+    pointing the host at `teach_from_outline` directly.
+    """
+    outline_yaml = storage.load_outline_yaml(arxiv_id)
+    if not outline_yaml:
+        return (
+            f"ERROR: no outline saved for {arxiv_id}. "
+            f"Run `extract_outline` + `save_outline` first."
+        )
+    domain = domain_for(arxiv_id)
+    render = getattr(domain, "render_plan", None)
+    if render is None:
+        return (
+            f"ERROR: domain {domain.name!r} does not implement the planner stage. "
+            f"Skip this prompt and run `teach_from_outline` directly."
+        )
+    p = await _read_routed(arxiv_id)
+    return render(
+        arxiv_id=arxiv_id,
+        title=p.title,
+        taste_profile=profile.read_text_for_prompt(),
+        paper_text=p.text,
+        outline_yaml=outline_yaml,
     )
 
 
@@ -250,6 +323,8 @@ async def extract_outline(arxiv_id: str) -> str:
 async def teach_from_outline(arxiv_id: str, mode: str = "single_host") -> str:
     """STAGE 2. Write the spoken script using the previously-saved outline as
     a mandatory coverage contract. Run extract_outline + save_outline first.
+    If a plan has also been saved (stage 1.5), it is loaded automatically and
+    drives the macro structure instead of the pack's default arc.
     """
     outline_yaml = storage.load_outline_yaml(arxiv_id)
     if not outline_yaml:
@@ -259,15 +334,17 @@ async def teach_from_outline(arxiv_id: str, mode: str = "single_host") -> str:
             f"`save_outline(arxiv_id={arxiv_id!r}, outline_yaml=...)` with the result, "
             f"then re-invoke this prompt."
         )
-    domain = active_domain()
-    p = await domain.read(arxiv_id)
+    plan_yaml = storage.load_plan_yaml(arxiv_id)  # None when no plan saved
+    p = await _read_routed(arxiv_id)
+    domain = domain_for(arxiv_id)
     return domain.render_teach(
         arxiv_id=arxiv_id,
         title=p.title,
-        taste_profile=_profile_text(),
+        taste_profile=profile.read_text_for_prompt(),
         paper_text=p.text,
         outline_yaml=outline_yaml,
         mode=mode,
+        plan_yaml=plan_yaml,
     )
 
 
@@ -286,7 +363,7 @@ def audit_coverage(arxiv_id: str) -> str:
         if not script:
             missing.append("script")
         return f"ERROR: missing {', '.join(missing)} for {arxiv_id}. Run earlier stages first."
-    return active_domain().render_audit(outline_yaml=outline_yaml, script=script)
+    return domain_for(arxiv_id).render_audit(outline_yaml=outline_yaml, script=script)
 
 
 def main() -> None:

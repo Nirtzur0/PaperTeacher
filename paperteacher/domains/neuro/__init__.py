@@ -1,10 +1,15 @@
-"""ML domain pack.
+"""Neuroscience domain pack.
 
-Subject coverage: ML / CS theory and practice papers from arXiv (cs.LG,
-cs.CL, cs.AI, stat.ML, math.ST, math.OC) and HuggingFace Daily, with
-Semantic Scholar as a citation-weighted source. The outline schema centers
-on equations and concepts; the prompts enforce voice-first reading rules
-and exhaustive equation coverage.
+Subject coverage: neuroscience preprints (bioRxiv) and recent journal
+papers (Europe PMC index of MEDLINE) — recordings, imaging, behavior,
+circuits, computation, clinical translational.
+
+The Outline schema's central unit is the **Finding**, decomposed
+alongside the **Method** that produced it and the **Control** that ruled
+out the obvious alternative explanation. The prompts enforce voice-first
+reading rules tuned for the field — spell out brain-region acronyms,
+don't read p-values aloud, never describe a method as "we recorded
+neurons" — and the audit at stage 3 checks for those specifically.
 """
 from __future__ import annotations
 
@@ -13,10 +18,8 @@ from . import discovery, models, prompts, reader
 from ...domain import register_domain
 
 
-class MLDomain:
-    """The default ML domain pack."""
-
-    name = "ml"
+class NeuroDomain:
+    name = "neuro"
     OutlineModel = models.Outline
     PlanModel = models.EpisodePlan  # opt-in planner stage
 
@@ -36,4 +39,4 @@ class MLDomain:
     read = staticmethod(reader.read_paper)
 
 
-register_domain("ml", MLDomain)
+register_domain("neuro", NeuroDomain)

@@ -125,6 +125,9 @@ class Candidate:
     source: str
     score: float = 0.0
     url: str = ""
+    # Stamped by `discover_all()` so the host can route subsequent
+    # read/extract/teach/audit calls back to the originating pack.
+    domain: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)

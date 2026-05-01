@@ -12,5 +12,8 @@ out/
 .pytest_cache/
 .ruff_cache/
 
+# Claude Code local state (scheduled tasks lock, etc.)
+.claude/
+
 # user-specific listener profile (use config/profile.example.md as a template)
 config/profile.md

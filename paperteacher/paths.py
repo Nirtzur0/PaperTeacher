@@ -16,9 +16,13 @@ USER_AGENT = "PaperTeacher/0.2 (+https://github.com/Nirtzur0/PaperTeacher)"
 ROOT = Path(os.environ.get("PAPERTEACHER_HOME", Path.home() / ".paperteacher"))
 
 OUTLINES_DIR = ROOT / "outlines"
+PLANS_DIR = ROOT / "plans"
 SCRIPTS_DIR = ROOT / "scripts"
 AUDITS_DIR = ROOT / "audits"
 AUDIO_DIR = ROOT / "audio"
+# Per-paper metadata sidecars (e.g. which domain pack produced/read it).
+# One tiny JSON per arxiv_id; the routing layer is the only writer/reader.
+META_DIR = ROOT / "meta"
 SEEN_FILE = ROOT / "seen.jsonl"
 SKIPPED_FILE = ROOT / "skipped.jsonl"  # candidates considered but not delivered
 EVENT_LOG = ROOT / "pipeline.jsonl"
@@ -28,10 +32,15 @@ EVENT_LOG = ROOT / "pipeline.jsonl"
 # ships `config/profile.example.md` as a starting template.
 PROFILE_PATH = Path(os.environ.get("PAPERTEACHER_PROFILE", ROOT / "profile.md"))
 
+# Preferred-authors allowlist. Off by default — when this file is absent,
+# discovery scoring is unchanged. Copy `config/preferred.example.yaml` to
+# this path to activate. See paperteacher.preferred for the schema.
+PREFERRED_PATH = Path(os.environ.get("PAPERTEACHER_PREFERRED", ROOT / "preferred.yaml"))
+
 
 def ensure_layout() -> None:
     """Create all subdirectories. Cheap to call repeatedly."""
-    for d in (ROOT, OUTLINES_DIR, SCRIPTS_DIR, AUDITS_DIR, AUDIO_DIR):
+    for d in (ROOT, OUTLINES_DIR, PLANS_DIR, SCRIPTS_DIR, AUDITS_DIR, AUDIO_DIR, META_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 
@@ -50,10 +59,9 @@ DEFAULT_LANG = "a"  # 'a' = American English, 'b' = British. Kokoro convention.
 DEFAULT_TTS_BACKEND = os.environ.get("PAPERTEACHER_TTS", "kokoro")
 
 # ---- pipeline constants ---------------------------------------------------
+# Framework mechanism, not user preference. User-facing knobs (script length,
+# mode, speaking rate, discovery categories) live in `paperteacher.profile` —
+# see config/profile.example.md. Don't add user-facing knobs here.
 
 DEFAULT_MAX_PAPER_CHARS = 120_000
 DEFAULT_DISCOVERY_LIMIT = 20
-# ~10 min target at Vertex Chirp 3 HD with speaking_rate 1.1 (~165 wpm × 1.1 ≈ 180 wpm).
-TARGET_SCRIPT_WORDS = 1750
-# Slightly faster than default — keeps the listener leaning forward without rushing.
-DEFAULT_TTS_SPEAKING_RATE = 1.1

@@ -120,3 +120,93 @@ def test_outline_critical_vs_important():
     outline2 = Outline.model_validate(extra)
     assert outline2.critical_ids() == ["C1", "E1"]
     assert outline2.important_ids() == ["C2"]
+
+
+# ---- v0.3 outline extensions: pedagogy + provenance --------------------
+#
+# These were added as part of the world-class upgrade. All fields are
+# OPTIONAL so older outlines (pre-v0.3) still parse — the LLM may not
+# populate them on every paper. The schema's job here is just to give the
+# fields a typed home when they ARE present.
+
+
+def test_outline_accepts_extension_fields():
+    """Stake claim, prior attempts, ablations, assumptions, benchmark
+    caveats, compute envelope, common misreadings, symbol glossary — all
+    optional, all parse cleanly when the LLM emits them."""
+    yaml_text = VALID_OUTLINE_YAML + """
+stake_claim: If this is right, attention isn't quadratic in any meaningful sense.
+prior_attempts:
+  - name: vanilla softmax attention
+    what_failed: O(n^2) memory blew up past 8k context
+ablations:
+  - component_removed: the gating
+    metric_delta: drops 4.2 points on GLUE
+    implies: the gating, not the depth, carries the gain
+assumption_boundaries:
+  - assumption: tokens are i.i.d. given the prefix
+    where_it_breaks: heavy-tailed code or repeated boilerplate
+benchmark_caveats:
+  GLUE: heavily contaminated post-2022; tells you about memorization more than reasoning
+compute_envelope: 64 H100s, 3 weeks, ~$120k
+common_misreadings:
+  - readers conflate "linear attention" with "as good as softmax"; the paper is explicit it isn't
+symbol_glossary:
+  pi_theta: the policy parameterized by theta
+  log p(x|y): the log-likelihood of x given y
+"""
+    outline = parse_outline(yaml_text)
+    assert outline.stake_claim.startswith("If this is right")
+    assert outline.prior_attempts[0].what_failed.startswith("O(n^2)")
+    assert outline.ablations[0].implies.startswith("the gating")
+    assert outline.assumption_boundaries[0].where_it_breaks.startswith("heavy-tailed")
+    assert "GLUE" in outline.benchmark_caveats
+    assert "$120k" in outline.compute_envelope
+    assert "linear attention" in outline.common_misreadings[0]
+    assert outline.symbol_glossary["pi_theta"] == "the policy parameterized by theta"
+
+
+def test_outline_extension_fields_are_optional():
+    """The minimal pre-v0.3 outline still parses — extensions default to empty."""
+    outline = parse_outline(VALID_OUTLINE_YAML)
+    assert outline.stake_claim == ""
+    assert outline.prior_attempts == []
+    assert outline.ablations == []
+    assert outline.assumption_boundaries == []
+    assert outline.benchmark_caveats == {}
+    assert outline.compute_envelope == ""
+    assert outline.common_misreadings == []
+    assert outline.symbol_glossary == {}
+    # Concept's first_concrete_instance also defaults empty.
+    assert outline.key_concepts[0].first_concrete_instance == ""
+
+
+def test_concept_first_concrete_instance():
+    yaml_text = VALID_OUTLINE_YAML.replace(
+        "    why_it_matters: matters because",
+        "    why_it_matters: matters because\n"
+        "    first_concrete_instance: imagine a 3D point [1,0,0] and ask where the score points",
+    )
+    outline = parse_outline(yaml_text)
+    assert "imagine a 3D point" in outline.key_concepts[0].first_concrete_instance
+
+
+def test_result_provenance_fields():
+    yaml_text = VALID_OUTLINE_YAML.replace(
+        "results_to_highlight: []",
+        """results_to_highlight:
+  - id: R1
+    claim: 87.3 on GLUE
+    what_it_demonstrates: the gating mechanism transfers
+    benchmark: GLUE
+    baseline: prior best 84.1; obvious baseline 70.0
+    variance_note: 3 seeds, std 0.4
+    compute: 8x A100 for 12 hours
+""",
+    )
+    outline = parse_outline(yaml_text)
+    r = outline.results_to_highlight[0]
+    assert r.benchmark == "GLUE"
+    assert "84.1" in r.baseline
+    assert "std 0.4" in r.variance_note
+    assert "A100" in r.compute

@@ -13,7 +13,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from . import paths
-from .domain import active_domain
+from .domain import domain_for
 from .domains._common import AuditReport
 
 log = logging.getLogger(__name__)
@@ -91,6 +91,13 @@ def skipped_ids() -> set[str]:
     return {row["arxiv_id"] for row in list_skipped() if "arxiv_id" in row}
 
 
+def excluded_ids() -> set[str]:
+    """Union of seen + skipped — the discovery exclusion set. Use this
+    instead of computing the union ad-hoc so server.py and cli.py stay
+    consistent (and so the rule has one definition, not two)."""
+    return seen_ids() | skipped_ids()
+
+
 def mark_skipped(
     arxiv_id: str,
     *,
@@ -140,7 +147,7 @@ def save_outline(arxiv_id: str, outline_yaml: str) -> tuple[Path, BaseModel]:
     re-serialization — field order and formatting become consistent across stages.
     """
     paths.ensure_layout()
-    domain = active_domain()
+    domain = domain_for(arxiv_id)
     outline = domain.parse_outline(outline_yaml)
     p = paths.OUTLINES_DIR / f"{arxiv_id}.yaml"
     p.write_text(outline.to_yaml())
@@ -160,12 +167,59 @@ def load_outline(arxiv_id: str) -> BaseModel | None:
     p = paths.OUTLINES_DIR / f"{arxiv_id}.yaml"
     if not p.exists():
         return None
-    return active_domain().parse_outline(p.read_text())
+    return domain_for(arxiv_id).parse_outline(p.read_text())
 
 
 def load_outline_yaml(arxiv_id: str) -> str | None:
     """Raw YAML form — used when feeding back into a prompt template."""
     p = paths.OUTLINES_DIR / f"{arxiv_id}.yaml"
+    return p.read_text() if p.exists() else None
+
+
+# ---- plans (stage 1.5) ---------------------------------------------------
+#
+# The plan is an OPTIONAL macro-structure artifact between extract and teach.
+# Domain packs that haven't opted into the planner stage need not implement
+# `parse_plan` — save_plan raises NotImplementedError, load_plan quietly
+# returns None, and the teach prompt falls back to its default arc.
+
+
+def save_plan(arxiv_id: str, plan_yaml: str) -> tuple[Path, BaseModel]:
+    paths.ensure_layout()
+    domain = domain_for(arxiv_id)
+    parser = getattr(domain, "parse_plan", None)
+    if parser is None:
+        raise NotImplementedError(
+            f"domain {domain.name!r} does not implement parse_plan — "
+            f"the planner stage is opt-in per pack"
+        )
+    plan = parser(plan_yaml)
+    p = paths.PLANS_DIR / f"{arxiv_id}.yaml"
+    p.write_text(plan.to_yaml())
+    extras: dict = {}
+    arc = getattr(plan, "arc", None)
+    if isinstance(arc, list):
+        extras["segments"] = len(arc)
+    takes = getattr(plan, "takes", None)
+    if isinstance(takes, list):
+        extras["takes"] = len(takes)
+    _emit("plan_saved", arxiv_id=arxiv_id, domain=domain.name, **extras)
+    log.info("saved plan for %s (domain=%s)", arxiv_id, domain.name)
+    return p, plan
+
+
+def load_plan(arxiv_id: str) -> BaseModel | None:
+    p = paths.PLANS_DIR / f"{arxiv_id}.yaml"
+    if not p.exists():
+        return None
+    parser = getattr(domain_for(arxiv_id), "parse_plan", None)
+    if parser is None:
+        return None
+    return parser(p.read_text())
+
+
+def load_plan_yaml(arxiv_id: str) -> str | None:
+    p = paths.PLANS_DIR / f"{arxiv_id}.yaml"
     return p.read_text() if p.exists() else None
 
 
@@ -191,7 +245,7 @@ def load_script(arxiv_id: str) -> str | None:
 
 def save_audit(arxiv_id: str, audit_yaml: str) -> tuple[Path, AuditReport]:
     paths.ensure_layout()
-    audit = active_domain().parse_audit(audit_yaml)
+    audit = domain_for(arxiv_id).parse_audit(audit_yaml)
     p = paths.AUDITS_DIR / f"{arxiv_id}.yaml"
     p.write_text(audit.to_yaml())
     _emit(
@@ -211,4 +265,4 @@ def load_audit(arxiv_id: str) -> AuditReport | None:
     p = paths.AUDITS_DIR / f"{arxiv_id}.yaml"
     if not p.exists():
         return None
-    return active_domain().parse_audit(p.read_text())
+    return domain_for(arxiv_id).parse_audit(p.read_text())

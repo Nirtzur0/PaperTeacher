@@ -97,12 +97,26 @@ paperteacher/
 └── domains/
     ├── __init__.py     # namespace (intentionally empty)
     ├── _common.py      # cross-domain types: AuditReport, ParseError, Candidate, PaperText
-    └── ml/             # the "ml" domain pack
-        ├── __init__.py # MLDomain class + registration
-        ├── models.py   # Pydantic: Outline / Equation / Concept (ML-specific)
-        ├── prompts.py  # the three stage prompts (ML-specific)
-        ├── discovery.py# HF Daily + arXiv RSS
-        └── reader.py   # arXiv HTML → HF → arXiv abstract fallback
+    ├── ml/             # the "ml" domain pack
+    │   ├── __init__.py # MLDomain class + registration
+    │   ├── models.py   # Pydantic: Outline / Equation / Concept (ML-specific)
+    │   ├── prompts.py  # the three stage prompts (ML-specific)
+    │   ├── discovery.py# HF Daily + arXiv RSS
+    │   └── reader.py   # arXiv HTML → HF → arXiv abstract fallback
+    ├── physics/        # the "physics" domain pack
+    │   ├── __init__.py # PhysicsDomain class + registration
+    │   ├── models.py   # Outline w/ dimensional check, limiting case,
+    │   │               #  symmetries, observables, experimental setup
+    │   ├── prompts.py  # physics-shaped prompts (sanity gates, no-tensor-aloud)
+    │   ├── discovery.py# arXiv physics RSS + INSPIRE-HEP REST
+    │   └── reader.py   # arXiv HTML → HF → arXiv abstract fallback
+    └── econ/           # the "econ" domain pack
+        ├── __init__.py # EconDomain class + registration
+        ├── models.py   # Outline w/ genre, identification, specifications,
+        │               #  estimates (with economic_translation), robustness
+        ├── prompts.py  # econ-shaped prompts (identification gate, no-symbols)
+        ├── discovery.py# NBER RSS + arXiv econ.* / q-fin.* RSS
+        └── reader.py   # arXiv HTML chain | NBER abstract page (id-routed)
 
 skills/paper_teacher/
 └── SKILL.md            # OpenClaw skill (loaded via skills.load.extraDirs)
@@ -120,20 +134,56 @@ The active domain resolves from (first hit wins):
 2. A `domain: <name>` line in the listener profile (`~/.paperteacher/profile.md`)
 3. Default `"ml"`
 
-Currently shipped: `ml` (math-heavy ML / CS papers from arXiv + HF Daily). To
-add a new domain, create `paperteacher/domains/<name>/__init__.py` with a
-class conforming to the `Domain` protocol and call `register_domain("<name>",
-YourClass)` at module level. Add `from .domains import <name>` to
-`_ensure_bundled_domains_loaded` in `paperteacher/domain.py`.
+Currently shipped:
+- `ml` — math-heavy ML / CS papers from arXiv + HF Daily.
+- `physics` — physics papers from arXiv (hep-th, hep-ph, gr-qc, astro-ph,
+  cond-mat, quant-ph by default) plus INSPIRE-HEP for the HEP family. The
+  outline schema carries dimensional-check / limiting-case / symmetry /
+  conservation-law fields per equation, plus first-class observables (with
+  uncertainty + falsifiability) and experimental-setup entries; the
+  teach-prompt's voice-first rules forbid reading tensor / index notation
+  aloud and require a named limit for any "in the appropriate limit" phrase.
+- `econ` — economics + quantitative-finance papers from NBER's new-papers
+  RSS plus arXiv `econ.*` / `q-fin.*`. The outline schema is genre-aware
+  (`empirical_causal`, `structural`, `asset_pricing`, `pure_theory`,
+  `survey`) and centers on `identification` (source of variation, key
+  assumption, what breaks if it fails), `specifications` written as spoken
+  sentences, and `estimates` carrying an `economic_translation` so a
+  coefficient becomes "a one-sd rise raises Y by 3% of its mean" in the
+  script. Voice-first rules ban "X causes Y" without identification and
+  "the result is robust" without naming the checks.
+
+To add a new domain, create `paperteacher/domains/<name>/__init__.py` with
+a class conforming to the `Domain` protocol and call `register_domain(
+"<name>", YourClass)` at module level. Add `from .domains import <name>`
+to `_ensure_bundled_domains_loaded` in `paperteacher/domain.py`.
 
 State lives under `~/.paperteacher/` (override with `PAPERTEACHER_HOME`):
 - `profile.md` — listener taste profile (copy from `config/profile.example.md`)
+- `preferred.yaml` — optional preferred-authors allowlist (copy from
+  `config/preferred.example.yaml`); off by default
 - `seen.jsonl` — delivered papers
 - `outlines/{id}.yaml` — stage 1 output, validated
 - `scripts/{id}.txt` — stage 2 output
 - `audits/{id}.yaml` — stage 3 output, validated
 - `audio/paper_{arxiv_id}.mp3` — rendered episodes
 - `pipeline.jsonl` — structured event log
+
+### Preferred-authors allowlist (optional)
+
+Bias discovery toward specific researchers (Anthropic interpretability folks,
+DeepMind, FAIR, anyone whose work you don't want to miss). When
+`~/.paperteacher/preferred.yaml` exists, every discovered candidate whose
+authors match a configured name (case-insensitive substring) gets a score
+boost so the host LLM's selection step sees those papers near the top.
+
+```bash
+cp config/preferred.example.yaml ~/.paperteacher/preferred.yaml
+$EDITOR ~/.paperteacher/preferred.yaml   # add/remove names
+```
+
+Off when the file is absent. Match is on author *name* — arXiv RSS doesn't
+expose institution, so to bias toward a lab list its key researchers.
 
 ## Quick start
 
@@ -241,7 +291,8 @@ WhatsApp allowlist and the same cron schedule without interfering.
 
 **Prompts (the three pipeline stages)**
 - `extract_outline(arxiv_id)` — instructs the host LLM to produce a
-  schema-conformant YAML outline (see `paperteacher.models.Outline`).
+  schema-conformant YAML outline (see the active domain's outline schema —
+  e.g. `paperteacher.domains.ml.models.Outline`).
 - `teach_from_outline(arxiv_id, mode?)` — instructs the host LLM to write
   the script using the saved outline as mandatory coverage. Includes the
   banned-phrases list, voice-first rules, and the ~2500-word ceiling.

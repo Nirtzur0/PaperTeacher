@@ -1,0 +1,54 @@
+# Preferred-authors allowlist (off by default).
+#
+# Copy this file to ~/.paperteacher/preferred.yaml (or wherever
+# PAPERTEACHER_PREFERRED points) to activate. When any discovered
+# candidate has an author whose name contains one of these strings
+# (case-insensitive substring), the candidate's discovery score gets
+# `boost` added — so the host LLM's selection step sees lab/researcher
+# work near the top of the list.
+#
+# Notes:
+#   - Match is on author *name*, not affiliation. arXiv RSS doesn't
+#     surface institution. To bias toward a lab, list its key researchers.
+#   - The boost is additive on the existing score (HF Daily uses upvote
+#     counts; arXiv RSS leaves it at 0). 100 is large enough to dominate
+#     typical HF Daily upvote totals.
+#   - Selection still happens in the host LLM — the boost just changes
+#     what order it sees candidates in. The skill's `selection_bias`
+#     and topic-distribution logic still apply.
+
+authors:
+  # Anthropic — interpretability + alignment
+  - Chris Olah
+  - Christopher Olah
+  - Neel Nanda
+  - Trenton Bricken
+  - Adam Jermyn
+  - Catherine Olsson
+  - Nelson Elhage
+  - Jared Kaplan
+  - Tom Henighan
+
+  # Google DeepMind
+  - Demis Hassabis
+  - Shane Legg
+  - David Silver
+  - Marc Bellemare
+  - Sander Dieleman
+  - Pushmeet Kohli
+
+  # OpenAI
+  - John Schulman
+  - Ilya Sutskever
+  - Jakub Pachocki
+
+  # FAIR / Meta AI
+  - Yann LeCun
+  - Mikael Henaff
+  - Adriana Romero
+
+  # Other researchers worth following — add or remove freely
+  # - Yoshua Bengio
+  # - Geoffrey Hinton
+
+boost: 100.0
