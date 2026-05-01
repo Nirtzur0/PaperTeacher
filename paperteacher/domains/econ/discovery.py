@@ -13,6 +13,19 @@ RePEc / NBER mirroring or via direct download once a user already has the id.
 NBER ids look like `w31234`; arXiv ids look like `2603.20105`. Both shapes
 are filesystem-safe and disjoint, so the reader can dispatch on format
 without a prefix.
+
+Why no Semantic Scholar here (yet)
+-----------------------------------
+The shared `domains/_semantic_scholar.py` fetcher is parametric on id_type
+and the ml/physics/neuro packs wire it in. Econ doesn't, on purpose: S2's
+``Economics`` field-of-study results are mostly DOI-keyed journal papers,
+but this pack's reader handles only arXiv ids and NBER working-paper ids
+— DOI handling would require extending the reader (PDF parsing or DOI
+redirection) or filtering S2 to only items with arXiv ids, which would
+yield a thin trickle that arXiv RSS already catches. Plumbing it in as
+currently shaped would be net noise. To enable: extend
+``domains/econ/reader.py`` to accept DOIs, then add a
+``fetch_semantic_scholar_econ`` mirroring the neuro pack's wiring.
 """
 from __future__ import annotations
 

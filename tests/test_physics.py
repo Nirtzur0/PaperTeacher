@@ -9,13 +9,18 @@ Covers:
     the rendered text (so a future refactor can't accidentally drop them)
   - dispatcher: a paper stamped `physics` routes to PhysicsDomain on
     domain_for() lookup
+  - INSPIRE-HEP: query string is the working `primarch <cat>` form (the
+    obvious-looking `arxiv:<cat>` returns 0 hits live), and parsing
+    handles the live response shape.
 """
 from __future__ import annotations
 
 import importlib
 import re
 
+import httpx
 import pytest
+import respx
 
 
 def _reset(monkeypatch):
@@ -306,3 +311,92 @@ def test_domain_for_physics_paper(tmp_path, monkeypatch):
     from paperteacher.domain import record_domain, domain_for
     record_domain("2603.77777", "physics")
     assert domain_for("2603.77777").name == "physics"
+
+
+# ---- INSPIRE-HEP --------------------------------------------------------
+
+# Canonical INSPIRE response for one hit. The real API returns this shape
+# under hits.hits[].metadata; the parsing has to pull out arxiv_eprints[0]
+# .value as the canonical id and the first abstract / first title.
+_INSPIRE_BODY = """{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "metadata": {
+          "titles": [{"title": "Non-Gaussian hydrodynamic fluctuations"}],
+          "authors": [
+            {"full_name": "Smith, A."},
+            {"full_name": "Jones, B."}
+          ],
+          "arxiv_eprints": [
+            {"categories": ["hep-th"], "value": "2604.27730"}
+          ],
+          "abstracts": [{"value": "An abstract about hydrodynamic fluctuations."}]
+        }
+      }
+    ]
+  }
+}"""
+
+
+@pytest.mark.asyncio
+async def test_fetch_inspire_uses_primarch_query():
+    """The bare `arxiv:<cat>` form returns 0 hits live; only `primarch <cat>`
+    works. Pin the correct query so a future regression that silently breaks
+    the source surfaces immediately."""
+    from paperteacher.domains.physics import discovery
+
+    with respx.mock(assert_all_called=False) as router:
+        route = router.get(
+            "https://inspirehep.net/api/literature",
+            params={"q": "primarch hep-th"},
+        ).respond(status_code=200, text=_INSPIRE_BODY)
+        cands = await discovery.fetch_inspire_hep("hep-th", limit=5)
+
+    assert route.called, "INSPIRE was queried with the wrong q parameter"
+    assert [c.arxiv_id for c in cands] == ["2604.27730"]
+    assert cands[0].title.startswith("Non-Gaussian")
+    assert cands[0].authors == ["Smith, A.", "Jones, B."]
+    assert cands[0].source == "inspire_hep-th"
+    assert cands[0].url == "https://arxiv.org/abs/2604.27730"
+
+
+@pytest.mark.asyncio
+async def test_fetch_inspire_returns_empty_on_http_error():
+    """Live INSPIRE has been bumpy — a 5xx must not crash the pipeline."""
+    from paperteacher.domains.physics import discovery
+
+    with respx.mock(assert_all_called=False) as router:
+        router.get("https://inspirehep.net/api/literature").respond(status_code=503)
+        cands = await discovery.fetch_inspire_hep("hep-th", limit=5)
+    assert cands == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_inspire_drops_records_without_arxiv_id():
+    """A record with no arxiv_eprints (journal-only with no preprint) can't
+    flow through the rest of the pipeline — drop, don't crash."""
+    from paperteacher.domains.physics import discovery
+
+    body_no_arxiv = """{"hits": {"total": 1, "hits": [
+      {"metadata": {"titles": [{"title": "T"}], "arxiv_eprints": []}}
+    ]}}"""
+    with respx.mock(assert_all_called=False) as router:
+        router.get("https://inspirehep.net/api/literature").respond(
+            status_code=200, text=body_no_arxiv
+        )
+        cands = await discovery.fetch_inspire_hep("hep-th", limit=5)
+    assert cands == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_inspire_network_error():
+    from paperteacher.domains.physics import discovery
+
+    with respx.mock(assert_all_called=False) as router:
+        router.get("https://inspirehep.net/api/literature").mock(
+            side_effect=httpx.ConnectError("boom")
+        )
+        cands = await discovery.fetch_inspire_hep("hep-th", limit=5)
+    assert cands == []

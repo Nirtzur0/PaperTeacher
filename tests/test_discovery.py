@@ -17,7 +17,12 @@ import httpx
 import pytest
 import respx
 
+from paperteacher.domains import _semantic_scholar
 from paperteacher.domains.ml import discovery
+
+# The S2 endpoint URL lives in the shared cross-domain fetcher; alias here
+# so the tests below stay readable.
+_S2_BULK_URL = _semantic_scholar._BULK_URL
 
 
 # ---- helpers --------------------------------------------------------------
@@ -88,7 +93,7 @@ async def test_semantic_scholar_returns_arxiv_papers_ranked_by_influence():
         _s2_paper("2604.00003", title="low impact", infl=0, cites=1),
     ])
     with respx.mock(assert_all_called=False) as router:
-        router.get(discovery._S2_BULK_URL).respond(
+        router.get(_S2_BULK_URL).respond(
             status_code=200, json=payload
         )
         cands = await discovery.fetch_semantic_scholar(limit=10)
@@ -105,7 +110,7 @@ async def test_semantic_scholar_returns_arxiv_papers_ranked_by_influence():
 async def test_semantic_scholar_failure_returns_empty():
     """S2 outages must not break discovery — it's additive, not load-bearing."""
     with respx.mock(assert_all_called=False) as router:
-        router.get(discovery._S2_BULK_URL).mock(
+        router.get(_S2_BULK_URL).mock(
             side_effect=httpx.ConnectError("boom")
         )
         cands = await discovery.fetch_semantic_scholar(limit=10)
@@ -124,7 +129,7 @@ async def test_semantic_scholar_uses_recent_window():
         return httpx.Response(200, json=_s2_payload([]))
 
     with respx.mock(assert_all_called=False) as router:
-        router.get(discovery._S2_BULK_URL).mock(side_effect=_capture)
+        router.get(_S2_BULK_URL).mock(side_effect=_capture)
         await discovery.fetch_semantic_scholar(window_days=90, today=today)
 
     # 90 days back from 2026-05-01 is 2026-01-31.
@@ -175,7 +180,7 @@ async def test_discover_dedups_across_sources_by_canonical_id():
             json=_hf_payload([_hf_paper("2604.00001", title="Paper A", upvotes=42)]),
         )
         router.get(arxiv_url).respond(status_code=200, text=arxiv_rss_xml)
-        router.get(discovery._S2_BULK_URL).respond(status_code=200, json=s2_payload)
+        router.get(_S2_BULK_URL).respond(status_code=200, json=s2_payload)
 
         cands = await discovery.discover(arxiv_categories=["cs.LG"], limit=20)
 
@@ -201,7 +206,7 @@ async def test_discover_handles_partial_source_failures():
     )
     with respx.mock(assert_all_called=False) as router:
         router.get(hf_url).respond(status_code=500)
-        router.get(discovery._S2_BULK_URL).respond(
+        router.get(_S2_BULK_URL).respond(
             status_code=200,
             json=_s2_payload([_s2_paper("2604.00777", title="Survivor", infl=5)]),
         )

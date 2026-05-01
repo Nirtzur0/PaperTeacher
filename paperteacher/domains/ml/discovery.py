@@ -27,6 +27,7 @@ import httpx
 from ... import paths
 from .._arxiv_rss import extract_arxiv_id, fetch_arxiv_rss
 from .._common import Candidate
+from .._semantic_scholar import fetch_semantic_scholar as _s2
 
 log = logging.getLogger(__name__)
 
@@ -93,23 +94,11 @@ async def fetch_hf_daily(
     return out
 
 
-# Semantic Scholar's `paper/search/bulk` endpoint returns up to 1000 papers
-# matching a query, with rich metadata. We use it to surface recent CS
-# papers that have ALREADY been cited — the citation-velocity signal that
-# neither HF Daily nor arXiv RSS provides. Free tier: ~100 req/5min
-# unauthenticated; we make one call per discovery, so well within budget.
-_S2_BULK_URL = "https://api.semanticscholar.org/graph/v1/paper/search/bulk"
-_S2_FIELDS = ",".join([
-    "externalIds",
-    "title",
-    "authors",
-    "abstract",
-    "citationCount",
-    "influentialCitationCount",
-    "publicationDate",
-])
-# Broad query string. S2's bulk endpoint requires a query — empty isn't
-# allowed — so we use a permissive "AND" filter that still narrows to ML.
+# ML's Semantic Scholar query — broad enough to catch the field, narrow
+# enough to stay relevant. The shared fetcher in `domains/_semantic_scholar.py`
+# does the actual HTTP work; we just configure it. The pack's reader expects
+# arXiv ids, so we ask S2 for items keyed on the `ArXiv` external-id field
+# and silently skip journal-only papers (their absence is by design).
 _S2_QUERY = "machine learning OR neural network OR language model"
 
 
@@ -118,65 +107,16 @@ async def fetch_semantic_scholar(
     limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
     today: dt.date | None = None,
 ) -> list[Candidate]:
-    """Recent CS papers from Semantic Scholar, ranked by influential citations.
-
-    Falls through silently (returns []) on network / auth / quota errors —
-    discovery is additive, not load-bearing on this source.
-    """
-    today = today or dt.date.today()
-    start = today - dt.timedelta(days=window_days)
-    params = {
-        "query": _S2_QUERY,
-        "fields": _S2_FIELDS,
-        "publicationDateOrYear": f"{start.isoformat()}:{today.isoformat()}",
-        "fieldsOfStudy": "Computer Science",
-    }
-    out: list[Candidate] = []
-    try:
-        async with httpx.AsyncClient(
-            timeout=30, headers={"User-Agent": paths.USER_AGENT}
-        ) as client:
-            r = await client.get(_S2_BULK_URL, params=params)
-            r.raise_for_status()
-            data = r.json()
-    except httpx.HTTPError as e:
-        log.warning("semantic_scholar fetch failed: %s", e)
-        return out
-    except ValueError as e:
-        log.warning("semantic_scholar JSON decode failed: %s", e)
-        return out
-
-    items = data.get("data") or []
-    for item in items:
-        ext = item.get("externalIds") or {}
-        # Need an arxiv id to route the paper through the rest of the
-        # pipeline (reader, outline, audio). S2 papers without an ArXiv
-        # id (e.g. journal-only) are silently skipped.
-        aid_raw = ext.get("ArXiv")
-        if not aid_raw:
-            continue
-        aid = canonical_arxiv_id(aid_raw)
-        # Score = influential citations primarily, with raw citation count
-        # as a tiebreaker. Keeps the ordering meaningful even when the
-        # influential count is sparse for very recent papers.
-        infl = float(item.get("influentialCitationCount") or 0)
-        cites = float(item.get("citationCount") or 0)
-        score = infl * 10 + cites
-        out.append(
-            Candidate(
-                arxiv_id=aid,
-                title=(item.get("title") or "").strip(),
-                authors=[a.get("name", "") for a in (item.get("authors") or [])],
-                summary=(item.get("abstract") or "").strip(),
-                source="semantic_scholar",
-                score=score,
-                url=f"https://arxiv.org/abs/{aid}",
-            )
-        )
-    out.sort(key=lambda c: c.score, reverse=True)
-    out = out[:limit]
-    log.info("semantic_scholar (last %dd): %d candidates", window_days, len(out))
-    return out
+    """Recent CS papers from Semantic Scholar, ranked by influential citations."""
+    return await _s2(
+        query=_S2_QUERY,
+        fields_of_study="Computer Science",
+        id_type="ArXiv",
+        canonicalize=canonical_arxiv_id,
+        window_days=window_days,
+        limit=limit,
+        today=today,
+    )
 
 
 async def discover(

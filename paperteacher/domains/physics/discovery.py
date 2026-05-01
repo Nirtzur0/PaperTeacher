@@ -5,6 +5,8 @@ Sources:
      subfields the pack is meant to teach (hep-th, hep-ph, gr-qc, astro-ph,
      cond-mat, quant-ph). Users override via the `arxiv_categories` profile
      setting or the discover() argument — the same mechanism the ml pack uses.
+     The fetcher itself lives in `domains/_arxiv_rss.py` since multiple packs
+     share it.
   2. INSPIRE-HEP REST API for the high-energy fields. INSPIRE indexes a
      much wider corpus than arXiv RSS (conference proceedings, journal-only
      papers, theses) and ships canonical metadata for HEP. Used as an
@@ -23,11 +25,20 @@ from __future__ import annotations
 import logging
 import re
 
-import feedparser
 import httpx
 
 from ... import paths
+from .._arxiv_rss import extract_arxiv_id, fetch_arxiv_rss
 from .._common import Candidate
+from .._semantic_scholar import fetch_semantic_scholar as _s2
+
+# Strip arXiv version suffixes for cross-source dedup. Same pattern the ml
+# pack uses; the rule is universal across packs that key on arXiv ids.
+_VERSION_RE = re.compile(r"v\d+$")
+
+
+def _canonical_arxiv_id(aid: str) -> str:
+    return _VERSION_RE.sub("", (aid or "").strip())
 
 log = logging.getLogger(__name__)
 
@@ -49,58 +60,6 @@ DEFAULT_PHYSICS_CATEGORIES = [
 # everything against arXiv RSS anyway.
 INSPIRE_HEP_CATEGORIES = {"hep-th", "hep-ph", "hep-ex", "hep-lat", "gr-qc", "nucl-th", "nucl-ex"}
 
-ARXIV_ID_RE = re.compile(r"(\d{4}\.\d{4,5})")
-
-
-def _extract_arxiv_id(text: str) -> str | None:
-    m = ARXIV_ID_RE.search(text or "")
-    return m.group(1) if m else None
-
-
-async def fetch_arxiv_rss(
-    category: str,
-    limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
-) -> list[Candidate]:
-    """arXiv RSS for one physics category. Mirrors the ml pack's fetcher
-    so behaviour is uniform across packs (same redirect handling, same
-    user-agent, same id extraction).
-
-    The `rss.arxiv.org` host is the re-implemented feed introduced in
-    early 2024; the legacy `export.arxiv.org/rss/<cat>` URL still works
-    via redirect, so we use the legacy form to match the ml pack and
-    let arXiv's own redirect take care of routing.
-    """
-    url = f"http://export.arxiv.org/rss/{category}"
-    body: str
-    try:
-        async with httpx.AsyncClient(
-            timeout=30, follow_redirects=True, headers={"User-Agent": paths.USER_AGENT}
-        ) as client:
-            r = await client.get(url)
-            r.raise_for_status()
-            body = r.text
-    except httpx.HTTPError as e:
-        log.warning("arxiv RSS fetch failed for %s: %s", category, e)
-        return []
-    feed = feedparser.parse(body)
-    out: list[Candidate] = []
-    for entry in feed.entries[:limit]:
-        aid = _extract_arxiv_id(entry.get("id", "")) or _extract_arxiv_id(entry.get("link", ""))
-        if not aid:
-            continue
-        out.append(
-            Candidate(
-                arxiv_id=aid,
-                title=(entry.get("title") or "").strip(),
-                authors=[a.get("name", "") for a in entry.get("authors", [])],
-                summary=re.sub(r"<[^>]+>", "", entry.get("summary", "")).strip(),
-                source=f"arxiv_{category}",
-                url=f"https://arxiv.org/abs/{aid}",
-            )
-        )
-    log.info("arxiv_rss %s: %d candidates", category, len(out))
-    return out
-
 
 async def fetch_inspire_hep(
     category: str,
@@ -117,9 +76,16 @@ async def fetch_inspire_hep(
     API contract:
       GET https://inspirehep.net/api/literature
         ?sort=mostrecent
-        &q=arxiv:<category>            (full-text search on the arxiv field)
+        &q=primarch <category>         (filter on primary arXiv archive)
         &fields=titles,authors,arxiv_eprints,abstracts
         &size=<limit>
+
+    Query syntax note: the obvious-looking `q=arxiv:<category>` form
+    silently returns zero hits (verified live), and `q=arxiv_eprints.value:
+    <category>` only matches the legacy "category/yymmnnn" id form so it
+    misses everything post-2007. `primarch <category>` is INSPIRE's
+    official short keyword for "primary arXiv archive equals X" and is the
+    only form that returns fresh records with populated arxiv_eprints.
 
     INSPIRE returns JSON with `hits.hits[].metadata` containing the fields
     we asked for. We're conservative on parsing: any record without a
@@ -128,7 +94,7 @@ async def fetch_inspire_hep(
     url = "https://inspirehep.net/api/literature"
     params = {
         "sort": "mostrecent",
-        "q": f"arxiv:{category}",
+        "q": f"primarch {category}",
         "fields": "titles,authors,arxiv_eprints,abstracts",
         "size": str(limit),
     }
@@ -154,7 +120,7 @@ async def fetch_inspire_hep(
         if not eprints:
             continue
         aid = (eprints[0] or {}).get("value")
-        if not aid or not _extract_arxiv_id(aid):
+        if not aid or not extract_arxiv_id(aid):
             continue
         title = ""
         titles = meta.get("titles") or []
@@ -183,33 +149,71 @@ async def fetch_inspire_hep(
     return out
 
 
+# Physics S2 query — broad enough to catch the major teachable subfields
+# without overweighting any single one. The fields-of-study filter
+# ("Physics") is what actually narrows; the query just gives S2 something
+# to score against. The shared fetcher in `domains/_semantic_scholar.py`
+# handles the HTTP, ranking, and id extraction.
+_S2_QUERY = (
+    "quantum field theory OR general relativity OR condensed matter "
+    "OR cosmology OR statistical physics OR quantum information"
+)
+
+
+async def fetch_semantic_scholar(
+    window_days: int = 90,
+    limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
+    today=None,
+) -> list[Candidate]:
+    """Recent physics papers from Semantic Scholar, ranked by influential
+    citations. Only returns papers with an arXiv id — the physics reader
+    is arXiv-shaped, so journal-only items would have nowhere to go.
+    """
+    return await _s2(
+        query=_S2_QUERY,
+        fields_of_study="Physics",
+        id_type="ArXiv",
+        canonicalize=_canonical_arxiv_id,
+        window_days=window_days,
+        limit=limit,
+        today=today,
+    )
+
+
 async def discover(
     arxiv_categories: list[str] | None = None,
     limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
 ) -> list[Candidate]:
-    """Combined discovery for physics. Walks the configured arXiv physics
-    categories in order, then for HEP-family categories also queries
-    INSPIRE. Dedupes by arxiv_id; earlier sources win on duplicates.
+    """Combined discovery for physics. Source order (earlier wins on dupes):
 
-    Order matters: arXiv RSS is the primary signal (canonical, fresh),
-    INSPIRE is enrichment for the HEP family (catches journal-route
-    papers that didn't preprint).
+        1. arXiv RSS         — canonical and fresh, per-category
+        2. INSPIRE-HEP       — for HEP-family categories only; enrichment
+                              that catches journal-route papers
+        3. Semantic Scholar  — citation-velocity signal for the field
+
+    Dedup is on canonical (version-stripped) arXiv id so the same paper
+    surfacing in two or three sources collapses to one entry.
     """
     cats = arxiv_categories or DEFAULT_PHYSICS_CATEGORIES
     seen_ids: set[str] = set()
     out: list[Candidate] = []
+
+    def _add(c: Candidate) -> None:
+        key = _canonical_arxiv_id(c.arxiv_id)
+        if not key or key in seen_ids:
+            return
+        seen_ids.add(key)
+        c.arxiv_id = key
+        out.append(c)
+
     for cat in cats:
         for c in await fetch_arxiv_rss(cat, limit=limit):
-            if c.arxiv_id in seen_ids:
-                continue
-            seen_ids.add(c.arxiv_id)
-            out.append(c)
+            _add(c)
     for cat in cats:
         if cat not in INSPIRE_HEP_CATEGORIES:
             continue
         for c in await fetch_inspire_hep(cat, limit=limit):
-            if c.arxiv_id in seen_ids:
-                continue
-            seen_ids.add(c.arxiv_id)
-            out.append(c)
+            _add(c)
+    for c in await fetch_semantic_scholar(limit=limit):
+        _add(c)
     return out

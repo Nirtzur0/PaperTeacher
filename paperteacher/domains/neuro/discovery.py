@@ -27,6 +27,7 @@ import httpx
 
 from ... import paths
 from .._common import Candidate
+from .._semantic_scholar import fetch_semantic_scholar as _s2
 
 log = logging.getLogger(__name__)
 
@@ -222,28 +223,69 @@ async def fetch_epmc_neuro(
     return out
 
 
+# Neuroscience S2 query — broad capture across systems, computational, and
+# clinical neuro. The fields-of-study filter ("Biology,Medicine") narrows;
+# the query string just gives S2 something concrete to score against.
+_S2_QUERY = (
+    "neuroscience OR neural circuit OR brain imaging OR "
+    "computational neuroscience OR cognitive neuroscience"
+)
+
+
+async def fetch_semantic_scholar_neuro(
+    window_days: int = 90,
+    limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
+    today: dt.date | None = None,
+) -> list[Candidate]:
+    """Recent neuro papers from Semantic Scholar, ranked by influential
+    citations. Items are keyed on DOI (Biology/Medicine papers don't
+    typically have arXiv ids); we re-encode each DOI to the filesystem-safe
+    `<prefix>_<suffix>` form the rest of the pack uses, so the reader and
+    storage layer find papers without further transformation.
+    """
+    return await _s2(
+        query=_S2_QUERY,
+        fields_of_study="Biology,Medicine",
+        id_type="DOI",
+        canonicalize=_encode_doi,
+        window_days=window_days,
+        limit=limit,
+        today=today,
+        # The pack's id format is the encoded DOI; `_encode_doi` replaces
+        # the slash, so the doi.org URL must use the original form. Build
+        # it with the canonicalize side-effect undone.
+        url_template="https://doi.org/{id}",
+    )
+
+
 async def discover(
     arxiv_categories: list[str] | None = None,    # accepted, ignored — interface compat
     date: dt.date | None = None,
     limit: int = paths.DEFAULT_DISCOVERY_LIMIT,
 ) -> list[Candidate]:
-    """Combined discovery: bioRxiv first (preprints, full coverage of the
-    field), then Europe PMC for journal-published work.
+    """Combined discovery for neuro. Source order (earlier wins on dupes):
 
-    The signature mirrors the ML pack so `discover_all()` can call it with
-    the same kwargs; ``arxiv_categories`` is silently ignored because
-    neuroscience doesn't live on arXiv.
+        1. bioRxiv          — preprints, the full field coverage
+        2. Europe PMC       — journal-published, recent
+        3. Semantic Scholar — citation-velocity signal across both
+
+    Dedup is on the encoded-DOI id form. The signature mirrors the ML pack
+    so `discover_all()` can call it with the same kwargs; ``arxiv_categories``
+    is silently ignored because neuroscience doesn't live on arXiv.
     """
     seen_ids: set[str] = set()
     out: list[Candidate] = []
+
+    def _add(c: Candidate) -> None:
+        if not c.arxiv_id or c.arxiv_id in seen_ids:
+            return
+        seen_ids.add(c.arxiv_id)
+        out.append(c)
+
     for c in await fetch_biorxiv_neuro(today=date, limit=limit):
-        if c.arxiv_id in seen_ids:
-            continue
-        seen_ids.add(c.arxiv_id)
-        out.append(c)
+        _add(c)
     for c in await fetch_epmc_neuro(today=date, limit=limit):
-        if c.arxiv_id in seen_ids:
-            continue
-        seen_ids.add(c.arxiv_id)
-        out.append(c)
+        _add(c)
+    for c in await fetch_semantic_scholar_neuro(limit=limit, today=date):
+        _add(c)
     return out
