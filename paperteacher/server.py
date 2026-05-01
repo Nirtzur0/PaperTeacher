@@ -26,7 +26,13 @@ mcp = FastMCP("paperteacher")
 
 @mcp.resource("profile://taste")
 def taste_profile() -> str:
-    """The listener's taste profile (fields, known topics, voice preferences)."""
+    """The listener's taste profile (fields, known topics, voice preferences).
+
+    Hosts should fetch this once at the start of a pipeline run rather than
+    expecting it to be re-inlined into every stage's prompt — plan and teach
+    no longer carry the profile body in their prompts (saves ~1.5K tokens
+    per pipeline run; see paperteacher.domains._prompts).
+    """
     return profile.read_text_for_prompt()
 
 
@@ -35,6 +41,31 @@ def outline_resource(arxiv_id: str) -> str:
     """Saved outline for a paper, or a hint if it hasn't been extracted."""
     body = storage.load_outline_yaml(arxiv_id)
     return body or f"(no outline saved for {arxiv_id} — run the extract_outline prompt first)"
+
+
+@mcp.resource("voice-guide://{domain}")
+def voice_guide_resource(domain: str) -> str:
+    """Per-domain voice guide — pronunciation tables, numerical rewrites,
+    banned phrases, anti-anthropomorphism rules. The teach prompt references
+    this resource by URI rather than re-shipping its ~1K tokens on every
+    (re)generation; hosts should fetch the relevant pack's guide once.
+
+    Currently shipped for `ml`; physics/neuro/econ inline their (smaller)
+    voice rules in the teach prompt body and return an empty body here.
+    """
+    from .domain import get_domain
+
+    try:
+        pack = get_domain(domain)
+    except ValueError:
+        return f"(unknown domain {domain!r})"
+    guide = getattr(pack, "voice_guide_text", "") or ""
+    if not guide:
+        return (
+            f"(domain {domain!r} inlines its voice rules in the teach prompt — "
+            f"no separate guide to fetch)"
+        )
+    return guide
 
 
 # ---- tools: discovery + reading ------------------------------------------
@@ -165,7 +196,11 @@ def get_script(arxiv_id: str) -> dict:
 def save_audit(arxiv_id: str, audit_yaml: str) -> dict:
     """Validate + persist the audit report from stage 3.
 
-    Returns the decision so the host can branch without re-parsing.
+    Returns just the decision and counts so the host can branch without
+    re-parsing — the full per-item breakdown lives in the saved YAML
+    (`audits/{arxiv_id}.yaml`) and can be loaded if needed. Slimming the
+    response saves ~1.5K tokens per audit when the LLM gets it back as
+    a tool result.
     """
     try:
         path, audit = storage.save_audit(arxiv_id, audit_yaml)
@@ -176,8 +211,8 @@ def save_audit(arxiv_id: str, audit_yaml: str) -> dict:
         "path": str(path),
         "coverage_status": audit.coverage_status,
         "recommendation": audit.recommendation,
-        "items_missing": [m.model_dump() for m in audit.items_missing],
-        "items_glossed": [g.model_dump() for g in audit.items_glossed],
+        "missing_count": len(audit.items_missing),
+        "glossed_count": len(audit.items_glossed),
     }
 
 
@@ -310,11 +345,16 @@ async def plan_episode(arxiv_id: str) -> str:
             f"Skip this prompt and run `teach_from_outline` directly."
         )
     p = await _read_routed(arxiv_id)
+    # taste_profile / paper_text are accepted for back-compat by the per-pack
+    # render_plan, but `_prompts.render_plan_template` drops them silently —
+    # the host already has `profile://taste` cached from stage 0, and the
+    # outline carries every claim/equation the planner needs. ~30K-token
+    # win per plan call.
     return render(
         arxiv_id=arxiv_id,
         title=p.title,
-        taste_profile=profile.read_text_for_prompt(),
-        paper_text=p.text,
+        taste_profile="",
+        paper_text="",
         outline_yaml=outline_yaml,
     )
 
@@ -337,15 +377,23 @@ async def teach_from_outline(arxiv_id: str, mode: str = "single_host") -> str:
     plan_yaml = storage.load_plan_yaml(arxiv_id)  # None when no plan saved
     p = await _read_routed(arxiv_id)
     domain = domain_for(arxiv_id)
-    return domain.render_teach(
-        arxiv_id=arxiv_id,
-        title=p.title,
-        taste_profile=profile.read_text_for_prompt(),
-        paper_text=p.text,
-        outline_yaml=outline_yaml,
-        mode=mode,
-        plan_yaml=plan_yaml,
-    )
+    # taste_profile is dropped at the template layer (host has profile://taste).
+    # `inline_voice_guide=False` swaps the ml pack's ~1K-token PRONUNCIATION
+    # GUIDE block for a one-line pointer to `voice-guide://ml`; only the ml
+    # render_teach signature accepts that flag (other packs inline shorter
+    # voice rules directly in the template body).
+    kwargs: dict = {
+        "arxiv_id": arxiv_id,
+        "title": p.title,
+        "taste_profile": "",
+        "paper_text": p.text,
+        "outline_yaml": outline_yaml,
+        "mode": mode,
+        "plan_yaml": plan_yaml,
+    }
+    if domain.name == "ml":
+        kwargs["inline_voice_guide"] = False
+    return domain.render_teach(**kwargs)
 
 
 @mcp.prompt()

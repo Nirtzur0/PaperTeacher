@@ -18,16 +18,14 @@ MathML) and surfaces equation/theorem tags as `[(5)]` markers — frontier
 LLMs reason over LaTeX-in-Markdown more fluently than over MathML or
 plain-text symbol salad, so this is the highest-leverage step in the reader.
 
-ML-domain reader. Other domain packs ship their own reader (e.g. DOI
-redirection for journals); HTML plumbing (fetch, title, truncate) lives in
-`domains/_html.py` so each pack's reader stays focused on the source list.
+The fetch/strip/validate loop lives in `domains/_html.walk_sources`; this
+file owns the ML-specific source list and the ar5iv stripper.
 """
 from __future__ import annotations
 
 import logging
 import re
 
-import httpx
 from bs4 import BeautifulSoup
 
 from ... import paths
@@ -86,11 +84,11 @@ def _ar5iv_strip(html: str) -> str:
     )
 
 
-def _looks_like_failed_render(text: str) -> bool:
-    """Heuristic: ar5iv pages that hit fatal LaTeXML errors still return 200
-    but the body is mostly error chrome. When the fragment shows up more than
-    once we're better off falling through to arxiv.org/html."""
-    return any(text.count(frag) > 1 for frag in _AR5IV_FATAL_FRAGMENTS)
+def _ar5iv_render_ok(text: str) -> bool:
+    """Returns False when ar5iv returned a 200 page that is mostly LaTeXML
+    error chrome — repeated fatal-fragment markers mean falling through to
+    arxiv.org/html will give a better result."""
+    return not any(text.count(frag) > 1 for frag in _AR5IV_FATAL_FRAGMENTS)
 
 
 async def read_paper(
@@ -110,30 +108,10 @@ async def read_paper(
       arxiv_abs  - arXiv abstract only (worst)
       none       - all sources failed
     """
-    sources: list[tuple[str, str, callable]] = [
-        (f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}", "ar5iv", _ar5iv_strip),
-        (f"https://arxiv.org/html/{arxiv_id}", "arxiv_html", _html.strip),
-        (f"https://huggingface.co/papers/{arxiv_id}", "hf_paper", _html.strip),
-        (f"https://arxiv.org/abs/{arxiv_id}", "arxiv_abs", _html.strip),
+    sources: list[tuple] = [
+        (f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}", "ar5iv", _ar5iv_strip, _ar5iv_render_ok),
+        (f"https://arxiv.org/html/{arxiv_id}", "arxiv_html"),
+        (f"https://huggingface.co/papers/{arxiv_id}", "hf_paper"),
+        (f"https://arxiv.org/abs/{arxiv_id}", "arxiv_abs"),
     ]
-    async with httpx.AsyncClient(
-        timeout=45, headers={"User-Agent": paths.USER_AGENT}
-    ) as client:
-        for url, label, strip in sources:
-            html = await _html.fetch(url, client)
-            if html is None:
-                continue
-            text = strip(html)
-            if len(text) < _html.MIN_USEFUL_TEXT_LEN:
-                log.debug("fetch %s extracted text too short (%d chars)", url, len(text))
-                continue
-            if label == "ar5iv" and _looks_like_failed_render(text):
-                log.debug("fetch %s: ar5iv render looks broken — falling through", url)
-                continue
-            log.info("read_paper %s: %s (%d chars)", arxiv_id, label, len(text))
-            return _html.truncate(
-                PaperText(arxiv_id, _html.title_from(html), text, label), max_chars
-            )
-
-    log.warning("read_paper %s: all sources failed", arxiv_id)
-    return PaperText(arxiv_id, "", "", "none")
+    return await _html.walk_sources(arxiv_id, sources, max_chars=max_chars)

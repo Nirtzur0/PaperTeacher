@@ -76,10 +76,15 @@ def _read_profile_text() -> str:
     return paths.PROFILE_PATH.read_text()
 
 
+@cache
 def read_text_for_prompt() -> str:
     """Profile markdown for `{taste_profile}` injection — never raises.
     Returns a descriptive fallback string when the file is absent so the
     LLM still gets a coherent prompt instead of an empty section.
+
+    Cached for the process: every pipeline stage in a given run reads the
+    same prompt-shaped text without hitting the filesystem repeatedly.
+    Tests that mutate profile.md should call `reset()` after the change.
     """
     text = _read_profile_text()
     return text or "(no profile.md found — using generic ML/CS defaults)"

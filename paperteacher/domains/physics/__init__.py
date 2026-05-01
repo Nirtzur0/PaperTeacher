@@ -31,29 +31,12 @@ What's physics-shaped about this pack vs. the ml pack:
 """
 from __future__ import annotations
 
-from .._common import parse_audit
+from .._common import make_domain
 from . import discovery, models, prompts, reader
 from ...domain import register_domain
 
-
-class PhysicsDomain:
-    """Physics domain pack — registered as `physics`."""
-
-    name = "physics"
-    OutlineModel = models.Outline
-    PlanModel = models.EpisodePlan  # opt-in planner stage
-
-    parse_outline = staticmethod(models.parse_outline)
-    parse_plan = staticmethod(models.parse_plan)
-    parse_audit = staticmethod(parse_audit)
-
-    render_extract = staticmethod(prompts.render_extract)
-    render_plan = staticmethod(prompts.render_plan)
-    render_teach = staticmethod(prompts.render_teach)
-    render_audit = staticmethod(prompts.render_audit)
-
-    discover = staticmethod(discovery.discover)
-    read = staticmethod(reader.read_paper)
-
+PhysicsDomain = make_domain(
+    "physics", models=models, prompts=prompts, discovery=discovery, reader=reader
+)
 
 register_domain("physics", PhysicsDomain)

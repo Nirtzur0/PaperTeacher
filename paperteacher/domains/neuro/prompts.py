@@ -126,17 +126,13 @@ RULES:
 
 PLAN_EPISODE = """You are designing the macro structure of a podcast episode about a neuroscience paper. The structure MUST BE SHAPED BY THE PAPER — a connectomics paper does not get the same arc as a behavior paper, and a clinical translational paper definitely doesn't get the same arc as an in-vitro slice paper. Your job is to think about what THIS specific paper deserves, then commit the persona's stance about it.
 
-LISTENER PROFILE:
----
-{taste_profile}
----
+The listener's taste profile is available at `profile://taste` — your host already loaded it; do not expect it inlined here.
 
 PAPER:
 arxiv_id: {arxiv_id}
 title: {title}
----
-{paper_text}
----
+
+The paper's full text is intentionally NOT inlined — the outline below carries every claim, equation, prior attempt, limitation, and result the planner needs. Plan the arc from the outline.
 
 OUTLINE (already extracted — segments will reference these by id):
 ---
@@ -204,10 +200,7 @@ RULES:
 
 TEACH_FROM_OUTLINE = """You are a research mentor recording a podcast episode about a neuroscience paper. You have the full paper AND a structured outline of everything that must be covered. Produce the spoken script.
 
-LISTENER PROFILE:
----
-{taste_profile}
----
+The listener's taste profile is available at `profile://taste` — your host already loaded it; do not expect it inlined here.
 
 PAPER:
 arxiv_id: {arxiv_id}
@@ -432,12 +425,15 @@ recommendation: ship | regenerate_with_gaps | regenerate_from_scratch
 
 
 # --------------------------------------------------------------------------------------
-# Render helpers (mirror the ML pack's signatures so the host code is identical)
+# Render helpers — thin wrappers over the shared scaffolding in _prompts.
 # --------------------------------------------------------------------------------------
+
+from .. import _prompts
 
 
 def render_extract(*, arxiv_id: str, title: str, taste_profile: str, paper_text: str) -> str:
-    return EXTRACT_OUTLINE.format(
+    return _prompts.render_extract_template(
+        EXTRACT_OUTLINE,
         arxiv_id=arxiv_id,
         title=title,
         taste_profile=taste_profile,
@@ -449,11 +445,12 @@ def render_plan(
     *,
     arxiv_id: str,
     title: str,
-    taste_profile: str,
-    paper_text: str,
     outline_yaml: str,
+    taste_profile: str | None = None,  # back-compat; not inlined
+    paper_text: str | None = None,     # back-compat; not inlined
 ) -> str:
-    return PLAN_EPISODE.format(
+    return _prompts.render_plan_template(
+        PLAN_EPISODE,
         arxiv_id=arxiv_id,
         title=title,
         taste_profile=taste_profile,
@@ -466,50 +463,33 @@ def render_teach(
     *,
     arxiv_id: str,
     title: str,
-    taste_profile: str,
     paper_text: str,
-    outline_yaml: str,
+    taste_profile: str | None = None,  # back-compat; not inlined
+    inline_voice_guide: bool = True,
+    domain_name: str | None = None,
+outline_yaml: str,
     mode: str = "single_host",
     plan_yaml: str | None = None,
     target_words: int | None = None,
     target_minutes: int | None = None,
 ) -> str:
-    if target_words is None or target_minutes is None:
-        from ... import profile as _profile_mod
-
-        prof = _profile_mod.load()
-        if target_words is None:
-            target_words = prof.target_script_words
-        if target_minutes is None:
-            target_minutes = prof.length_target_minutes
-    if plan_yaml:
-        plan_section = (
-            "\nEPISODE PLAN (the macro structure — follow this arc, segment by segment):\n"
-            "---\n"
-            f"{plan_yaml}\n"
-            "---\n"
-        )
-        structure_template = _STRUCTURE_FROM_PLAN
-    else:
-        plan_section = ""
-        structure_template = _STRUCTURE_DEFAULT
-    structure_section = structure_template.format(
-        target_words=target_words,
-        target_minutes=target_minutes,
-    )
-    return TEACH_FROM_OUTLINE.format(
+    return _prompts.render_teach_template(
+        TEACH_FROM_OUTLINE,
+        structure_default=_STRUCTURE_DEFAULT,
+        structure_from_plan=_STRUCTURE_FROM_PLAN,
         arxiv_id=arxiv_id,
         title=title,
         taste_profile=taste_profile,
         paper_text=paper_text,
         outline_yaml=outline_yaml,
         mode=mode,
-        plan_section=plan_section,
-        structure_section=structure_section,
+        plan_yaml=plan_yaml,
         target_words=target_words,
         target_minutes=target_minutes,
     )
 
 
 def render_audit(*, outline_yaml: str, script: str) -> str:
-    return AUDIT_COVERAGE.format(outline_yaml=outline_yaml, script=script)
+    return _prompts.render_audit_template(
+        AUDIT_COVERAGE, outline_yaml=outline_yaml, script=script
+    )

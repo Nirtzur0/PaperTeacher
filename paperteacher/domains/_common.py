@@ -145,3 +145,60 @@ class PaperText:
     text: str
     source: str
     truncated: bool = False
+
+
+# ---- domain pack factory --------------------------------------------------
+
+
+def make_domain(
+    name: str,
+    *,
+    models,
+    prompts,
+    discovery,
+    reader,
+):
+    """Build a Domain class from a pack's submodules.
+
+    All four bundled packs (ml, physics, neuro, econ) follow the same shape:
+    they expose `models`, `prompts`, `discovery`, `reader` modules and want a
+    Domain class that wires the standard methods onto them. This factory does
+    that wiring once.
+
+    Required attributes on each module:
+      models:    Outline (BaseModel), parse_outline(text) -> BaseModel.
+                 Optional: EpisodePlan + parse_plan(text) for the planner stage.
+      prompts:   render_extract / render_plan / render_teach / render_audit.
+      discovery: discover(...) -> list[Candidate].
+      reader:    read_paper(arxiv_id, ...) -> PaperText.
+    """
+    attrs: dict = {
+        "name": name,
+        "OutlineModel": models.Outline,
+        "parse_outline": staticmethod(models.parse_outline),
+        "parse_audit": staticmethod(parse_audit),
+        "render_extract": staticmethod(prompts.render_extract),
+        "render_teach": staticmethod(prompts.render_teach),
+        "render_audit": staticmethod(prompts.render_audit),
+        "discover": staticmethod(discovery.discover),
+        "read": staticmethod(reader.read_paper),
+    }
+    # Planner stage is opt-in — copy the bits over only when the pack ships them.
+    plan_model = getattr(models, "EpisodePlan", None)
+    if plan_model is not None:
+        attrs["PlanModel"] = plan_model
+    if hasattr(models, "parse_plan"):
+        attrs["parse_plan"] = staticmethod(models.parse_plan)
+    if hasattr(prompts, "render_plan"):
+        attrs["render_plan"] = staticmethod(prompts.render_plan)
+
+    # Voice guide is also opt-in. Packs that have extracted their voice rules
+    # into a `_VOICE_GUIDE` constant get it surfaced as a class attribute so
+    # the MCP server can expose `voice-guide://<name>` and the teach renderer
+    # can drop the table from the prompt body when the host has it cached.
+    # Packs that haven't yet extracted their voice rules return "" — the
+    # resource still resolves, just to an empty body, and the teach prompt
+    # body keeps its inline rules.
+    attrs["voice_guide_text"] = getattr(prompts, "_VOICE_GUIDE", "")
+
+    return type(f"{name.capitalize()}Domain", (), attrs)

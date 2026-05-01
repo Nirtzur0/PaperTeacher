@@ -23,18 +23,24 @@ combine them in your head.
 1. Call `paperteacher.fetch_trending_papers` with
    `arxiv_categories=["cs.LG", "cs.CL", "cs.AI", "stat.ML", "math.ST", "math.OC"]`.
    Already-seen and already-skipped papers are filtered server-side.
-2. Read the listener's profile from the `profile://taste` resource.
-3. Call `paperteacher.topic_distribution(window=30)` to see which topic
+2. Read the listener's profile from the `profile://taste` resource — load
+   it once now; the plan and teach prompts no longer inline it (saves
+   ~1.5K redundant tokens per pipeline run).
+3. Read the active pack's voice guide from the `voice-guide://<domain>`
+   resource (e.g. `voice-guide://ml`). The teach prompt references it
+   instead of re-shipping the ~1K-token pronunciation/banned-phrases table
+   on every (re)generation. Apply the rules to every line you emit.
+4. Call `paperteacher.topic_distribution(window=30)` to see which topic
    tags have been over- or under-represented in recent deliveries. Favor
    underrepresented topics — keep the diet diverse over time.
-4. Pick ONE candidate that best matches `selection_bias` in the profile
+5. Pick ONE candidate that best matches `selection_bias` in the profile
    AND is not over-saturated in the topic distribution. Prefer mathematical
    depth, surprising ideas, last 2-4 weeks. If nothing matches, take the
    highest-scored candidate and note that in the hook.
-5. For every candidate you considered but did NOT pick, call
+6. For every candidate you considered but did NOT pick, call
    `paperteacher.mark_skipped(arxiv_id=..., title=..., tags=[...],
    reason=...)`. This builds a backlog you can revisit on slow news days.
-6. Call `paperteacher.read_paper(arxiv_id=...)`. If `source == "arxiv_abs"`
+7. Call `paperteacher.read_paper(arxiv_id=...)`. If `source == "arxiv_abs"`
    you only have the abstract — proceed but flag this in stage 1's outline
    and in the WhatsApp hook.
 
