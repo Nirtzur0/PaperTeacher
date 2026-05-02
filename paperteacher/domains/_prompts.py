@@ -10,23 +10,22 @@ constants (`EXTRACT_OUTLINE`, `PLAN_EPISODE`, `TEACH_FROM_OUTLINE`,
 `_STRUCTURE_FROM_PLAN`), and exposes a tiny `prompts.py` that delegates
 its render_* calls here.
 
-Token-diet (2026-05-02): `taste_profile` is NO LONGER inlined in plan or
-teach prompts. The host agent reads `profile://taste` once at stage 0;
-re-shipping the same text every stage was ~1.5K tokens of redundancy.
-`paper_text` is also dropped from the plan template — the outline carries
-every structurally relevant claim/equation/limitation, so the planner has
-what it needs without the prose. Saves ~30K tokens per plan call. The
-voice guide moves to a `voice-guide://<domain>` MCP resource for hosts
-that support resource caching; CLI users still get it inlined since they
-have no resource layer.
+Token-diet:
+  - The plan body still drops paper_text — the outline already carries every
+    structurally relevant claim/equation/limitation. Saves ~30K tokens per
+    plan call.
+  - taste_profile IS inlined in extract, plan, and teach: it's the voice
+    anchor (PhD friend, geometric/physical analogies, intuition-before-
+    formalism). ~500 tokens of context that actively shapes output, not
+    redundant ceremony — earlier diet had pulled this from plan/teach and
+    it visibly killed the script's voice. Restored.
 
 Placeholder vocabulary across packs:
-  - extract: arxiv_id, title, taste_profile, paper_text  (UNCHANGED — the
-             extractor needs both)
-  - plan:    arxiv_id, title, outline_yaml               (no profile, no prose)
-  - teach:   arxiv_id, title, paper_text, outline_yaml, mode, plan_section,
-             structure_section, target_words, target_minutes,
-             voice_guide_section
+  - extract: arxiv_id, title, taste_profile, paper_text
+  - plan:    arxiv_id, title, taste_profile, outline_yaml
+  - teach:   arxiv_id, title, taste_profile, paper_text, outline_yaml,
+             mode, plan_section, structure_section,
+             target_words, target_minutes, voice_guide_section
 """
 from __future__ import annotations
 
@@ -42,10 +41,6 @@ def render_extract_template(
     taste_profile: str,
     paper_text: str,
 ) -> str:
-    """Stage 1. Profile + full paper text are both essential here — the
-    extractor's output IS the contract for stages 2 and 3, so undertraining
-    it would propagate everywhere downstream.
-    """
     return template.format(
         arxiv_id=arxiv_id,
         title=title,
@@ -62,33 +57,18 @@ def render_plan_template(
     *,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     outline_yaml: str,
-    # Accepted for back-compat with older callers; intentionally NOT inlined.
-    # The outline carries the structural decisions; the host has the profile
-    # via resource. Saves ~30K tokens per plan call.
-    taste_profile: str | None = None,
-    paper_text: str | None = None,
 ) -> str:
-    del taste_profile, paper_text
     return template.format(
         arxiv_id=arxiv_id,
         title=title,
+        taste_profile=taste_profile,
         outline_yaml=outline_yaml,
     )
 
 
 # ---- teach -------------------------------------------------------------
-
-
-# One-line stand-in when the prompt body shouldn't carry the full voice guide.
-# The MCP server uses this so hosts that have already loaded the
-# voice-guide://<domain> resource don't get the same content twice.
-_VOICE_GUIDE_RESOURCE_REF = (
-    "The voice guide (pronunciation table, numerical rewrites, banned "
-    "phrases, anti-anthropomorphism rules) is loaded as the "
-    "`voice-guide://{domain}` MCP resource — your host has it. Apply those "
-    "rules to every line you emit; they are non-negotiable."
-)
 
 
 def render_teach_template(
@@ -98,6 +78,7 @@ def render_teach_template(
     structure_from_plan: str,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     paper_text: str,
     outline_yaml: str,
     mode: str = "single_host",
@@ -105,25 +86,18 @@ def render_teach_template(
     target_words: int | None = None,
     target_minutes: int | None = None,
     voice_guide: str = "",
-    inline_voice_guide: bool = True,
-    domain_name: str = "ml",
     extras: dict[str, str] | None = None,
-    # Accepted for back-compat; intentionally not inlined (the host has the
-    # `profile://taste` resource).
-    taste_profile: str | None = None,
 ) -> str:
     """Render the stage-2 prompt.
 
     `target_words` / `target_minutes` resolve from the profile when omitted,
     so callers don't duplicate the lookup.
 
-    `voice_guide` is the per-pack pronunciation/banned-phrase table.
-    `inline_voice_guide=True` (CLI default) embeds it directly; `False` (MCP
-    server) replaces it with a one-line pointer to the
-    `voice-guide://<domain>` resource — the host already has the content
-    loaded once and doesn't need it re-shipped every regen.
+    `voice_guide` is the per-pack pronunciation/banned-phrase block,
+    inlined into the `{voice_guide_section}` placeholder. Packs that don't
+    use a separate voice guide pass empty string and `.format()` ignores
+    the missing placeholder reference (Python semantics).
     """
-    del taste_profile  # silently dropped — host has the resource
     if target_words is None or target_minutes is None:
         from .. import profile as _profile_mod
 
@@ -150,14 +124,10 @@ def render_teach_template(
         target_minutes=target_minutes,
     )
 
-    if inline_voice_guide:
-        voice_guide_section = voice_guide
-    else:
-        voice_guide_section = _VOICE_GUIDE_RESOURCE_REF.format(domain=domain_name)
-
     return teach_template.format(
         arxiv_id=arxiv_id,
         title=title,
+        taste_profile=taste_profile,
         paper_text=paper_text,
         outline_yaml=outline_yaml,
         mode=mode,
@@ -165,7 +135,7 @@ def render_teach_template(
         structure_section=structure_section,
         target_words=target_words,
         target_minutes=target_minutes,
-        voice_guide_section=voice_guide_section,
+        voice_guide_section=voice_guide,
         **(extras or {}),
     )
 

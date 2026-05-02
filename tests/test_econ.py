@@ -262,7 +262,6 @@ def test_render_plan_substitutes_all(tmp_path, monkeypatch):
         arxiv_id="w31234",
         title="t",
         taste_profile="domain: econ",
-        paper_text="paper",
         outline_yaml="paper_id: w31234\n",
     )
     _assert_clean(out, "w31234")

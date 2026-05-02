@@ -176,6 +176,13 @@ symbol_glossary:
 
 RULES:
 - Be exhaustive on equations. Do not skip the appendix if it has the cleanest proof.
+- **MINIMUM 3 ITEMS MARKED `critical`** across `key_equations` + `key_concepts`. The
+  `critical` tier exists to FORCE the teach stage to do full decomposition. If you
+  mark everything `mention` to dodge the harder schema fields, you produce a hollow
+  outline and the script collapses into an abstract paraphrase. Pick the 3-5 things
+  the paper genuinely lives or dies by, and mark them `critical`. If you honestly
+  cannot find 3 — the paper is too thin to teach; surface that fact in
+  `core_thesis` rather than faking compliance with everything-is-mention.
 - For `critical` equations every component-and-trick field is mandatory.
 - For each component, describe ROLE not SYMBOL. "the model's predicted gradient field at each input point" — NOT "nabla theta of f sub theta".
 - Every CRITICAL concept must have a `first_concrete_instance`. The script will lead with it.
@@ -193,7 +200,12 @@ RULES:
 
 PLAN_EPISODE = """You are designing the macro structure of a podcast episode about a research paper. The structure MUST BE SHAPED BY THE PAPER — a survey paper does not get the same arc as a theory paper, and a position paper definitely doesn't get the same arc as an empirical one. Your job is to think about what THIS specific paper deserves, then commit the persona's stance about it.
 
-The listener's taste profile is available at `profile://taste` — your host already has it; do not expect it inlined here. The paper's full text is intentionally NOT inlined either; the outline below carries every structurally relevant claim, equation, prior attempt, limitation, and result. Plan the arc from the outline.
+LISTENER PROFILE (anchors voice, depth level, and what to lean into):
+---
+{taste_profile}
+---
+
+The paper's full text is intentionally NOT inlined here — the outline below carries every structurally relevant claim, equation, prior attempt, limitation, and result. Plan the arc from the outline + the listener profile.
 
 PAPER:
 arxiv_id: {arxiv_id}
@@ -289,10 +301,9 @@ RULES:
 # the teach prompt so the realizer has explicit rules + examples for the
 # textual rewrites that prevent TTS from butchering the script.
 _VOICE_GUIDE = """\
-PRONUNCIATION GUIDE (apply these rewrites BEFORE emitting the script — these
-are the patterns where neural TTS reliably fails):
+PRONUNCIATION GUIDE — apply these rewrites; neural TTS reliably mangles them:
 
-ML acronyms — pronounce as words; spell phonetically when ambiguous:
+ML acronyms (pronounce as words; spell when ambiguous):
   ELBO → "EL-bow"        VAE → "V-A-E" (letter-spell)
   LoRA → "LORE-uh"       BERT → "burt"
   GAN → "gan" (rhymes with "can")
@@ -301,7 +312,7 @@ ML acronyms — pronounce as words; spell phonetically when ambiguous:
   T-SNE → "tee-S-N-E"    UMAP → "YOU-map"      YOLO → "YO-loh"
   NeRF → "nerf"          CLIP → "clip"         DALL-E → "DAH-lee"
 
-Forced rewrites (TTS reliably mangles these):
+Forced rewrites:
   i.i.d. → "independent and identically distributed"
   e.g.   → "for example"
   i.e.   → "that is"
@@ -314,12 +325,12 @@ Forced rewrites (TTS reliably mangles these):
   KL     → "K-L"         FFN → "feed-forward network"
   SOTA   → "state of the art"
 
-Greek letters and operators (always rewrite — never leave raw Unicode):
+Greek letters / operators (never leave raw Unicode):
   α/β/γ/δ/θ/λ/μ/σ/ε/η/ρ/τ/φ/ψ/ω →
     alpha/beta/gamma/delta/theta/lambda/mu/sigma/epsilon/eta/rho/tau/phi/psi/omega
   ∇ → "gradient"      ∂ → "partial"      Σ → "sum"      Π → "product"
 
-Names that need phonetic guides if mentioned:
+Names — phonetic guides if mentioned:
   Schmidhuber → SHMIT-hoo-ber       Hochreiter → HOKE-rye-ter
   Bengio → BEN-jee-oh                Schölkopf → SHURL-kopf
   Sutskever → SOOTS-keh-ver          Vaswani → vahs-WAH-nee
@@ -331,7 +342,7 @@ Names that need phonetic guides if mentioned:
   Kullback-Leibler → KULL-back LIBE-ler   Frobenius → froh-BEE-nee-us
   Fréchet → FRAY-shay                Bregman → BREG-mun
 
-NUMERICAL REWRITES (TTS reads these wrong by default):
+NUMERICAL REWRITES:
   1e-4 / 10^-4   → "one-times-ten-to-the-minus-four"
   82M / 7B / 1.5T → "eighty-two million" / "seven billion" / "one-point-five trillion"
   O(n log n)     → "order n log n"
@@ -354,34 +365,29 @@ ARCHITECTURE ACRONYMS — expand on first use, then alias is fine:
   FlashAttention → "flash attention"
   KV cache → "key-value cache"
 
-SYMBOL ROLE TABLE — read symbols by their ROLE, never by their glyph.
-The outline's `symbol_glossary` is the lookup table for THIS paper. Use
-those role descriptions verbatim. If a symbol appears in the paper but is
-NOT in the glossary, describe its role in one short clause the first time
-you say it, then alias.
-
-Examples of the role-substitution discipline:
+SYMBOL ROLE TABLE — read symbols by their ROLE, never by their glyph. The outline's
+`symbol_glossary` is the lookup for THIS paper; use those descriptions verbatim. For
+any symbol not in the glossary, describe its role in one short clause first, then alias.
   pi_theta            → "the policy" (NOT "pi theta", NOT "pi sub theta")
   log p(x|y)          → "the log-likelihood of x given y"
   ∇_θ L(θ)            → "the gradient of the loss with respect to the parameters"
-  Q K^T / sqrt(d)     → "queries dotted with keys, scaled down by the
-                         square root of the head dimension"
+  Q K^T / sqrt(d)     → "queries dotted with keys, scaled by the square root of the head dimension"
   E[(...)²]           → "the expected squared difference between..."
 
-PACING — periods become pauses:
-  - One idea per sentence. Max ~20 words. TTS pauses at periods (~400ms),
-    barely at commas (~150ms).
-  - Use em-dashes for parenthetical beats — like this — not parentheses
-    (TTS reads parentheticals flat).
-  - Insert a paragraph break (blank line) before a hard pivot. ~1s pause.
-  - For dense math derivations, prefer many short sentences over one long
-    one with semicolons.
+PACING — TTS pauses at periods (~400ms), barely at commas (~150ms):
+  - One idea per sentence. Max ~20 words.
+  - Em-dashes for parenthetical beats — like this — not parentheses (TTS reads parentheticals flat).
+  - Blank line before a hard pivot for a ~1s pause.
+  - Dense math: many short sentences > one long one with semicolons.
 """
 
 
-TEACH_FROM_OUTLINE = """You are a research mentor recording a podcast episode. You have the full paper AND a structured outline of everything that must be covered. Produce the spoken script.
+TEACH_FROM_OUTLINE = """You are a research mentor producing the spoken text of a deep-dive on a research paper. Output goes straight into a TTS engine — one (or two) unnamed voices, no studio framing. You have the full paper AND a structured outline you must cover.
 
-The listener's taste profile is available at the `profile://taste` MCP resource — your host has already loaded it; consult that copy rather than expecting it inlined here.
+LISTENER PROFILE (drives voice, depth, choice of analogies):
+---
+{taste_profile}
+---
 
 PAPER:
 arxiv_id: {arxiv_id}
@@ -396,48 +402,60 @@ OUTLINE (MANDATORY COVERAGE — your script will be audited against this):
 ---
 {plan_section}
 DELIVERY MODE: {mode}
-- single_host: one narrator. Use self-questioning to create internal dialogue:
-    "Now you might be wondering — why does this term cancel? Here's the trick..."
-    This is the 3Blue1Brown / Tim Urban move. Use it freely.
-- two_host:    output as <Person1>...</Person1><Person2>...</Person2> tags, alternating.
-                Person2 is a peer-level interlocutor — NEVER a cheerleader. Person2's questions
-                must be exactly one of these types:
-                  - clarifying:  "wait, doesn't that mean..."
-                  - challenging: "the obvious worry is..."
-                  - connecting:  "this reminds me of [other paper / other field]..."
-                Person2 may occasionally be wrong and corrected by Person1 — that is pedagogically
-                valuable. The two MUST disagree substantively at least once in the
-                episode (drawn from the plan's `takes` if a plan is present).
-                Cheerleader phrases ("wow", "amazing", "great point", "Exactly!")
-                are covered by the BANNED PHRASES section below — same list applies to both speakers.
+- single_host: one narrator using self-questioning ("you might be wondering why this term
+  cancels — here's the trick...") for internal dialogue. The 3Blue1Brown / Karpathy move.
+- two_host: <Person1>...</Person1><Person2>...</Person2> alternating. Person2 is a peer
+  interlocutor; every Person2 turn is exactly one of: clarifying ("wait, doesn't that
+  mean..."), challenging ("the obvious worry is..."), or connecting ("this reminds me
+  of..."). Person2 may be wrong and get corrected — pedagogically valuable. The two
+  MUST disagree substantively at least once (pull from plan `takes` when present). NO
+  cheerleader phrases from either speaker; same banned list as below applies.
 
-COVERAGE REQUIREMENTS (NON-NEGOTIABLE):
-1. Every `critical` concept and equation MUST appear with its full decomposition: what it solves,
-   structure in words, each component's ROLE (not symbol), the key trick, the geometric picture,
-   AND the numerical walkthrough. None of these may be skipped.
-2. Every `important` item must appear with at least: what it solves, the key trick, and the
-   connection to the next idea.
-3. Every `mention` item gets at least one substantive sentence (not "and there's also some other stuff").
-4. Every entry in `limitations_and_open_questions` must be addressed by name.
-5. Every `critical` concept must be INTRODUCED with its `first_concrete_instance` (the
-   concrete example the outline pre-computed) BEFORE any abstract definition. Concrete-then-abstract.
-6. If `prior_attempts` is non-empty, the script must walk through at least the first one — show
-   why the naive thing fails before introducing the contribution. This is the load-bearing
-   pedagogy move; do not skip it.
-7. `assumption_boundaries` (when present): name at least the one most consequential assumption
-   AND where it would break. Don't bury it in the closing segment.
-8. Every reported NUMBER in `results_to_highlight` must arrive WITH its baseline AND the
-   claim-it-is-evidence-for. A bare "achieves 87.3 on GLUE" is forbidden — say
-   "87.3 on GLUE, up from 84.1 for the previous best, which is evidence that..."
-9. Every paper-specific gloss listed in `banned_glosses` is forbidden.
-10. If the outline says you flagged a `note` for an equation you didn't fully understand, the
-    script must honestly acknowledge that subtlety rather than fake confidence.
+THE CONTRACT — your script will be audited against this. Failure modes named here are
+audit failures, not stylistic preferences:
+
+For every `critical` equation, the full chain in spoken form:
+  what-it-solves → structure-in-words → role of each major term (the ROLE, never the
+  symbol) → key trick → geometric picture → numerical walkthrough → bridge to next.
+  Naming the equation is failure. Vibes-only intuition is failure.
+
+For every `critical` concept: lead with its `first_concrete_instance` BEFORE any
+  abstract definition. Concrete-then-abstract. The outline pre-computed the example.
+
+For every `important` item: at minimum what-it-solves, the key trick, the connection
+  to the next idea. For every `mention` item: at least one substantive sentence (no
+  "and there's also some other stuff").
+
+For every reported number: baseline AND claim-it-is-evidence-for, in the same beat.
+  "87.3 on GLUE, up from 84.1, which is evidence that the gating transfers" — never
+  the bare SOTA.
+
+`prior_attempts` (when non-empty): walk through at least the first — let the listener
+  feel the simpler thing breaking before the contribution arrives. Load-bearing.
+
+`assumption_boundaries` (when present): name the one most consequential assumption
+  AND where it breaks. Don't bury it in the closer.
+
+Every entry in `limitations_and_open_questions` and every paper-specific phrase in
+  `banned_glosses` is addressed by name. If the outline carries a `note` for something
+  you didn't fully understand, acknowledge that subtlety honestly — don't fake confidence.
+
+PERSONA — what makes this not NotebookLM:
+The voice is a working researcher with a STANCE. Bring lineage (where ideas come from
+historically), connections to adjacent work, opinions on what's actually new vs. clever
+reframing. Generic praise like "an important contribution" is failure. Every architectural
+choice gets motivation within ~2 sentences of being introduced (what failed without it,
+what it buys). Every named technique (DPO, FlashAttention, GQA, SwiGLU…) gets an
+operational definition in plain English before its second use.
+
+Coverage > brevity. ALWAYS.
 
 LENGTH:
-- Target ~{target_words} words (~{target_minutes} minutes spoken).
-- That word count is a CEILING on padding, not a floor on rambling. Cut anything that does not earn its place.
-- If you cannot cover all `critical` items in the target, cut adjective density and meta-commentary.
-  NEVER cut equation decomposition or `first_concrete_instance` examples. Coverage > brevity.
+- Target ~{target_words} words (~{target_minutes} minutes spoken). This is a TARGET.
+- Under ~80% of target = under-covered. Expand a `critical` item with more decomposition,
+  numerical walkthrough, geometric picture, or lineage until you hit target.
+- 10–15% over target is fine when the math earns it. Cut filler before coverage; never
+  cut equation decomposition, `first_concrete_instance` examples, or numerical anchors.
 
 {structure_section}
 
@@ -498,67 +516,70 @@ BANNED PHRASES (do not use any of these — they read as filler or hype):
 - bullet-list disguised as prose: "First... Second... Third..." or "There are three reasons:
   one, ...; two, ...; three, ..."
 - section headers read aloud ("Section three. Results.")
+- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
+  "Today we're talking about", "On today's episode", "That's all the time we have",
+  "Join us next time", "see you next time", "thanks for listening"
+- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
+  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
+  do not introduce themselves and they have no proper names.
+- invented show / podcast / column / column-name: never name the production. There
+  is no show.
 - Plus every paper-specific phrase listed in the outline's `banned_glosses`.
 
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
-- Excitement is allowed, but earn it through the IDEAS, never through adjectives.
-- Honest about difficulty. "This part is genuinely subtle, so let me slow down" beats
+- Excitement is allowed but must come from the IDEAS, never from adjectives.
+- Honest about difficulty: "this part is genuinely subtle, let me slow down" beats
   pretending it's obvious.
-- Layer complexity: simple first, then the nuance, then the full picture.
-- For every key equation, include at least one self-questioning beat (single_host) or one
+- Layer complexity: simple → nuance → full picture.
+- Every key equation gets at least one self-questioning beat (single_host) or
   clarifying question (two_host) so the listener doesn't drift.
-- Architecture choices need motivation: every "they add a gating mechanism"
-  must be accompanied within two sentences by why — what failed without it,
-  what the gating buys.
-- Named techniques need operationalization: every "they use Direct
-  Preference Optimization" must include a one-sentence operational
-  definition before its second mention.
 
 OUTPUT:
-Output ONLY the script. No preamble, no headers, no stage directions, no markdown fence.
-Just the words a TTS would speak.
-For two_host: wrap each turn in <Person1>...</Person1> or <Person2>...</Person2>, alternating,
-with turns of 1-3 sentences for natural cadence.
+Output ONLY the words that will be spoken aloud — plain prose. No preamble, no markdown
+fence, no stage directions or scene markers (no `[SCENE START]`, `**INT. ...**`, music
+cues), no markdown formatting (no `**bold**`, `*italic*`, headers, bullets, code ticks),
+no podcast framing (no "Welcome to ...", "Today we're talking about ...", "That's all
+the time we have", "Join us next time", "thanks for listening"), no invented show name,
+no self-introductions. Person1 and Person2 are TTS routing tags, NOT named characters —
+neither speaker says "I'm [name]" or "with me is".
+
+For two_host: wrap each turn in <Person1>...</Person1> or <Person2>...</Person2>,
+alternating, with turns of 1-3 sentences for natural cadence. Get straight into the content.
 """
 
 
 # Structure block when no plan was generated — the original prescriptive arc.
 # Used as a fallback so existing `extract → teach` flows keep working unchanged.
-_STRUCTURE_DEFAULT = """STRUCTURE (write as flowing speech, not as labelled sections).
-The proportions below are a guide, not a contract — total budget is ~{target_words} words.
-Allocate the actual word count yourself; the math section gets the most.
-1. Cold open (~5% of total). One surprising sentence ANCHORED IN A CONCRETE
-   INSTANCE — a number, a scenario, a failure mode — not the title, not
-   the authors. Then two more sentences: name the gap, name why we should care.
-   Example shape: "Most people think attention scales like n-squared. These folks made it linear
-   without losing anything — and the reason it works isn't engineering, it's a geometric
-   observation about what attention actually computes."
-2. Context (~10%). Just enough background that the key idea lands. If
-   `prior_attempts` is non-empty, this is where the naive-thing-that-fails
-   pattern earns its space — show the simpler approach breaking first.
-3. Key idea (~12%). Plain language first, anchored in the
-   `first_concrete_instance` from the outline. Could-retell-at-dinner test.
-4. The math, equation by equation (~55-60% — THE MEAT). Walk through every `critical` equation
-   using its outline decomposition:
-     - set up the problem it solves
-     - describe the structure in words
-     - walk each component by ROLE not symbol (use `symbol_glossary`)
-     - give the geometric picture
-     - give the numerical walkthrough
-     - state the key trick
-     - bridge to the next equation
-5. Results (~10%). Pick 2-3 from `results_to_highlight`. Each number arrives
-   with its baseline AND the claim it's evidence for. If `ablations` are
-   non-empty, the most informative one belongs here, not buried.
-6. Bigger picture (~5-7%). Where this sits, what it enables, what's still open.
-   Address the items in `limitations_and_open_questions` AND at least the
-   most consequential `assumption_boundaries` entry here.
-7. Closer (~5%). EXACTLY two things:
-     - One sentence to remember (the elevator pitch, sharper than the cold open).
-     - One concrete 10-minute follow-up: "if you have ten minutes today, skim section 3.2 —
-       the proof of the cancellation lemma is the cleanest thing in the paper." Be specific
-       about which section / figure / GitHub repo."""
+_STRUCTURE_DEFAULT = """STRUCTURE — flowing speech, not labelled sections. Total budget
+~{target_words} words; the math section gets the most. Proportions are a guide.
+
+1. Cold open (~5%). One surprising sentence ANCHORED IN A CONCRETE INSTANCE — a number,
+   scenario, or failure mode. Not the title, not the authors. Two more sentences: the
+   gap, why we should care. ("Most people think attention scales like n-squared. These
+   folks made it linear without losing anything — and the reason isn't engineering,
+   it's a geometric observation about what attention actually computes.")
+
+2. Context (~10%). Just enough background that the key idea lands. If `prior_attempts`
+   is non-empty, this is where the naive-thing-that-fails pattern earns its space.
+
+3. Key idea (~12%). Plain language first, anchored in the `first_concrete_instance` from
+   the outline. Could-retell-at-dinner test.
+
+4. The math, equation by equation (~55-60% — THE MEAT). Every `critical` equation per
+   its full chain (defined above in THE CONTRACT). Use `symbol_glossary` verbatim.
+
+5. Results (~10%). Pick 2-3 from `results_to_highlight`. Numbers arrive with baseline
+   AND the claim-it-is-evidence-for. The most informative `ablation` lands here, not
+   buried.
+
+6. Bigger picture (~5-7%). Where this sits, what it enables. Address every entry in
+   `limitations_and_open_questions` plus the most consequential `assumption_boundaries`.
+
+7. Closer (~5%). EXACTLY two things: one sentence to remember (sharper than the cold
+   open), and one concrete 10-minute follow-up — name a specific section, figure, or
+   repo. ("If you have ten minutes today, skim section 3.2 — the cancellation-lemma
+   proof is the cleanest thing in the paper.")"""
 
 
 # Structure block when a plan IS provided — the plan IS the structure, so the
@@ -715,16 +736,14 @@ def render_plan(
     *,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     outline_yaml: str,
-    taste_profile: str | None = None,  # back-compat; not inlined
-    paper_text: str | None = None,     # back-compat; not inlined
 ) -> str:
     return _prompts.render_plan_template(
         PLAN_EPISODE,
         arxiv_id=arxiv_id,
         title=title,
         taste_profile=taste_profile,
-        paper_text=paper_text,
         outline_yaml=outline_yaml,
     )
 
@@ -733,20 +752,14 @@ def render_teach(
     *,
     arxiv_id: str,
     title: str,
-    taste_profile: str | None = None,  # back-compat; not inlined
+    taste_profile: str,
     paper_text: str,
     outline_yaml: str,
     mode: str = "single_host",
     plan_yaml: str | None = None,
     target_words: int | None = None,
     target_minutes: int | None = None,
-    inline_voice_guide: bool = True,
 ) -> str:
-    """Stage 2 renderer. Set `inline_voice_guide=False` from the MCP server
-    so hosts with the `voice-guide://ml` resource don't get the table
-    re-shipped on every (re)generation. CLI keeps the default `True` since
-    pipe-to-stdout has no resource layer.
-    """
     return _prompts.render_teach_template(
         TEACH_FROM_OUTLINE,
         structure_default=_STRUCTURE_DEFAULT,
@@ -761,8 +774,6 @@ def render_teach(
         target_words=target_words,
         target_minutes=target_minutes,
         voice_guide=_VOICE_GUIDE,
-        inline_voice_guide=inline_voice_guide,
-        domain_name="ml",
     )
 
 

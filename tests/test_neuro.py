@@ -213,7 +213,6 @@ def test_render_plan_substitutes_all(tmp_path, monkeypatch):
         arxiv_id="10.1101_x",
         title="t",
         taste_profile="domain: neuro",
-        paper_text="paper",
         outline_yaml="paper_id: 10.1101_x\n",
     )
     leftover = re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", out)

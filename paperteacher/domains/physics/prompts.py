@@ -154,6 +154,13 @@ hard_pronunciations:
 
 RULES:
 - Be exhaustive on equations. Don't skip the appendix if it has the cleanest derivation.
+- **MINIMUM 3 ITEMS MARKED `critical`** across `key_equations` + `key_concepts` +
+  `observables_and_predictions`. The `critical` tier forces the teach stage to do
+  full decomposition with the sanity gates. If you mark everything `mention`, you
+  produce a hollow outline and the script collapses into an abstract paraphrase.
+  Pick the 3-5 things the paper genuinely lives or dies by, and mark them `critical`.
+  If you honestly cannot find 3 — the paper is too thin; surface that in
+  `core_thesis` rather than faking compliance.
 - For `critical` equations every field above is mandatory, including dimensional_check, limiting_case, and at least one of (symmetries, conservation_law).
 - For each component, describe ROLE not SYMBOL. "the gauge field that mediates the strong force" — NOT "A sub mu sup a".
 - If you don't have a clean intuition for an equation, mark it `mention` and add `note: "I don't have a clean intuition — the script should acknowledge that"`. Flag, don't fake.
@@ -167,13 +174,16 @@ RULES:
 
 PLAN_EPISODE = """You are designing the macro structure of a podcast episode about a physics research paper. The structure MUST BE SHAPED BY THE PAPER — a string-theory derivation does not get the same arc as an ATLAS measurement, and an LIGO event paper definitely doesn't get the same arc as a hep-th formalism paper. Decide what THIS specific paper deserves, then commit the persona's stance about it.
 
-The listener's taste profile is available at `profile://taste` — your host already loaded it; do not expect it inlined here.
+LISTENER PROFILE (anchors voice, depth level, and what physics traditions to lean on):
+---
+{taste_profile}
+---
+
+The paper's full text is intentionally NOT inlined — the outline below carries every claim, equation, prior attempt, limitation, and result the planner needs. Plan the arc from the outline + the listener profile.
 
 PAPER:
 arxiv_id: {arxiv_id}
 title: {title}
-
-The paper's full text is intentionally NOT inlined — the outline below carries every claim, equation, prior attempt, limitation, and result the planner needs. Plan the arc from the outline.
 
 OUTLINE (already extracted — segments will reference these by id):
 ---
@@ -248,9 +258,12 @@ RULES:
 # STAGE 2 — Teaching script
 # --------------------------------------------------------------------------------------
 
-TEACH_FROM_OUTLINE = """You are a research mentor recording a podcast episode about a physics paper. You have the full paper AND a structured outline of everything that must be covered. Produce the spoken script.
+TEACH_FROM_OUTLINE = """You are a research mentor producing the spoken text of a deep-dive on a physics paper. Output goes straight into a TTS engine — one (or two) unnamed voices, no studio framing. You have the full paper AND a structured outline you must cover.
 
-The listener's taste profile is available at `profile://taste` — your host already loaded it; do not expect it inlined here.
+LISTENER PROFILE (drives voice, depth, choice of physics tradition):
+---
+{taste_profile}
+---
 
 PAPER:
 arxiv_id: {arxiv_id}
@@ -265,43 +278,55 @@ OUTLINE (MANDATORY COVERAGE — your script will be audited against this):
 ---
 {plan_section}
 DELIVERY MODE: {mode}
-- single_host: one narrator. Use self-questioning to create internal dialogue:
-    "Now you might be wondering — why does this term cancel? Watch the symmetry argument..."
-    This is the 3Blue1Brown / Tim Urban / Sean Carroll move. Use it freely.
-- two_host:    output as <Person1>...</Person1><Person2>...</Person2> tags, alternating.
-                Person2 is a peer-level interlocutor — NEVER a cheerleader. Person2's questions
-                must be exactly one of these types:
-                  - clarifying:  "wait, in what regime does that hold?"
-                  - challenging: "the obvious worry is dimensional — the right side has units of..."
-                  - connecting:  "this reminds me of [other paper / Bekenstein-Hawking / BCS]..."
-                Person2 may occasionally be wrong and corrected by Person1 — that is pedagogically
-                valuable, especially for sanity checks (a missed factor of 2π is a great teaching
-                beat). Cheerleader phrases ("wow", "amazing", etc.) are covered by the
-                BANNED PHRASES section below — same list applies to both speakers.
+- single_host: one narrator using self-questioning ("you might wonder why this cancels —
+  watch the symmetry argument...") for internal dialogue. The 3Blue1Brown / Sean Carroll move.
+- two_host: <Person1>...</Person1><Person2>...</Person2> alternating. Person2 is a peer
+  interlocutor; every Person2 turn is exactly one of: clarifying ("wait, in what regime
+  does that hold?"), challenging ("the obvious worry is dimensional — the right side has
+  units of..."), or connecting ("this reminds me of Bekenstein-Hawking / BCS..."). Person2
+  may be wrong and get corrected — pedagogically valuable, especially for missed factors
+  of 2π. NO cheerleader phrases from either speaker; same banned list as below applies.
 
-COVERAGE REQUIREMENTS (NON-NEGOTIABLE):
-1. Every `critical` concept and equation MUST appear with its full decomposition: what it
-   solves, structure in words, each component's ROLE (not symbol), the key trick, the geometric
-   picture, the dimensional check, AT LEAST ONE limiting case, the symmetries / conservation
-   law content, AND the Fermi-style estimate. None of these may be skipped.
-2. Every `important` item must appear with at least: what it solves, the key trick, the limiting
-   case OR the dimensional check, and the connection to the next idea.
-3. Every `mention` item gets at least one substantive sentence (not "and there's also some other stuff").
-4. Every entry in `regime_and_assumptions` must be named at least once — the script must
-   say "this is valid when v ≪ c" rather than "in the appropriate limit".
-5. Every entry in `observables_and_predictions` should land — what's predicted, what would
-   measure it, what would falsify it. Ground the math in something an experiment can do.
-6. For `experimental_setup` items (when present), name the apparatus and the dominant
-   systematic. Listeners often don't know how the measurement is even possible.
-7. Every entry in `limitations_and_open_questions` must be addressed by name.
-8. If the outline says you flagged a `note` for an equation you didn't fully understand, the
-   script must honestly acknowledge that subtlety rather than fake confidence.
+THE CONTRACT — your script will be audited against this. Failure modes named here are
+audit failures, not stylistic preferences:
+
+For every `critical` equation, the full chain in spoken form (in this order):
+  structure-in-words → role of each major term (the ROLE, never the symbol) → key trick
+  → geometric picture → dimensional check spelled out → at least one limiting case taken
+  explicitly → symmetry / Noether-conserved-quantity content → Fermi estimate with
+  numbers plugged in → bridge to next. Naming the equation is failure. Vibes-only
+  intuition is failure. "By symmetry" without naming the symmetry is failure.
+
+For every `important` item: at minimum what-it-solves, the key trick, ONE sanity gate
+  (dimensional OR limiting case), and the connection to next.
+
+For every `mention` item: at least one substantive sentence.
+
+`regime_and_assumptions`: every entry named explicitly. "Valid when v ≪ c" not "in the
+  appropriate limit". `limitations_and_open_questions`: every entry addressed by name.
+
+`observables_and_predictions`: every critical/important entry gets predicted-value +
+  how-measured + falsifiability. `experimental_setup` (when present): apparatus AND
+  dominant systematic.
+
+If the outline carries a `note` for something you didn't fully understand, acknowledge
+that subtlety — don't fake confidence.
+
+PERSONA — what makes this not NotebookLM:
+The voice is a working physicist with a STANCE. Bring lineage (BCS, the Standard Model,
+gauge theory, ΛCDM, Wilsonian flow — physics traditions span decades), connections to
+adjacent works, opinions on what's actually new vs. notation. Generic praise like "an
+important contribution" is failure.
+
+Coverage > brevity. ALWAYS.
 
 LENGTH:
-- Target ~{target_words} words (~{target_minutes} minutes spoken).
-- That word count is a CEILING on padding, not a floor on rambling. Cut anything that does not earn its place.
-- If you cannot cover all `critical` items in the target, cut adjective density and meta-commentary.
-  NEVER cut equation decomposition or the sanity gates. Coverage > brevity.
+- Target ~{target_words} words (~{target_minutes} minutes spoken). This is a TARGET.
+- Under ~80% of target = under-covered. Expand a `critical` equation or observable with
+  more decomposition, the dimensional check spelled out, the limiting case taken
+  explicitly, or the Fermi estimate plugged in, until you hit target.
+- 10–15% over target is fine when the physics earns it. Cut filler before coverage;
+  never cut equation decomposition or the sanity gates.
 
 {structure_section}
 
@@ -364,82 +389,77 @@ BANNED PHRASES (do not use any of these — they read as filler or as cargo-cult
 - "the equations of motion follow" — the listener should be told HOW they follow
 - bullet-list disguised as prose: "First... Second... Third..." or "There are three reasons:"
 - section headers read aloud ("Section three. Results.")
+- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
+  "Today we're talking about", "On today's episode", "That's all the time we have",
+  "Join us next time", "see you next time", "thanks for listening"
+- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
+  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
+  do not introduce themselves and they have no proper names.
+- invented show / podcast / column name: never name the production. There is no show.
 - Plus every paper-specific phrase listed in the outline's `banned_glosses`.
 
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
-- Excitement is allowed, but earn it through the IDEAS, never through adjectives.
-- Honest about difficulty. "This part is genuinely subtle — the divergence is real and the
-  renormalization isn't a trick, it's how we extract physics. Let me slow down."
-- Layer complexity: simple first, then the nuance, then the full picture.
-- Acknowledge the tradition where it lives. "This is the same Wilsonian flow that Wilson
-  formalized for critical phenomena in the 1970s, ported to a different equation."
-- For every key equation, include at least one self-questioning beat (single_host) or one
+- Excitement comes from the IDEAS, never adjectives.
+- Honest about difficulty: "the divergence is real, the renormalization isn't a trick,
+  let me slow down" beats pretending it's obvious.
+- Layer complexity: simple → nuance → full picture.
+- Every key equation gets at least one self-questioning beat (single_host) or
   clarifying question (two_host) so the listener doesn't drift.
 
 OUTPUT:
-Output ONLY the script. No preamble, no headers, no stage directions, no markdown fence.
-Just the words a TTS would speak.
-For two_host: wrap each turn in <Person1>...</Person1> or <Person2>...</Person2>, alternating,
-with turns of 1-3 sentences for natural cadence.
+Output ONLY the words that will be spoken aloud — plain prose. No preamble, no markdown
+fence, no stage directions or scene markers (no `[SCENE START]`, `**INT. ...**`, music
+cues), no markdown formatting (no `**bold**`, `*italic*`, headers, bullets, code ticks),
+no podcast framing (no "Welcome to ...", "Today we're talking about ...", "That's all
+the time we have", "Join us next time", "thanks for listening"), no invented show name,
+no self-introductions. Person1 and Person2 are TTS routing tags, NOT named characters —
+neither speaker says "I'm [name]" or "with me is".
+
+For two_host: wrap each turn in <Person1>...</Person1> or <Person2>...</Person2>,
+alternating, with turns of 1-3 sentences for natural cadence. Get straight into the physics.
 """
 
 
 # Structure block when no plan was generated — physics-shaped 8-act default.
 # Used as a fallback so existing `extract → teach` flows keep working unchanged
 # without requiring a planner pass.
-_STRUCTURE_DEFAULT = """STRUCTURE (write as flowing speech, not as labelled sections).
-The proportions below are a guide, not a contract — total budget is ~{target_words} words.
-Allocate the actual word count yourself; the equations + sanity-gates section gets the most.
+_STRUCTURE_DEFAULT = """STRUCTURE — flowing speech, not labelled sections. Total budget
+~{target_words} words; the equations + sanity-gates section gets the most. Proportions
+are a guide.
 
-1. Cold open (~5% of total). One surprising sentence. Lead with the PHENOMENON or the
-   PUZZLE, not the title or the authors. Then two more sentences: name the gap, name why
-   we should care.
-   Example shape: "Most people think a black hole is just a one-way membrane. These folks
-   computed what happens when you push a quantum field across it, and the bookkeeping leaves
-   behind a piece of the field's information that nobody can yet account for."
+1. Cold open (~5%). One surprising sentence — lead with the PHENOMENON or PUZZLE, not
+   the title. Two more sentences: the gap, why we should care. ("Most people think a
+   black hole is a one-way membrane. These folks computed what happens when you push a
+   quantum field across it, and the bookkeeping leaves behind a piece of the field's
+   information nobody can yet account for.")
 
-2. Tradition + motivation (~10%). Just enough lineage that the result lands. Where does
-   this sit — is it sharpening a 60-year-old story, or proposing something genuinely new?
-   Address the items in `historical_context` here.
+2. Tradition + motivation (~10%). Just enough lineage that the result lands. Address
+   `historical_context` here. Sharpening a 60-year-old story, or genuinely new?
 
-3. Regime setup (~7%). Walk through `regime_and_assumptions` explicitly. "This whole
-   discussion lives in the weak-coupling, non-relativistic limit — that's where the
-   expansion converges and where the lattice can check us." This earns its keep — without
-   it, every equation that follows is hanging in the air.
+3. Regime setup (~7%). Walk `regime_and_assumptions` explicitly — "weak-coupling,
+   non-relativistic limit, where the expansion converges and the lattice can check us".
+   Without it, every equation that follows is hanging in the air.
 
-4. The physics, equation by equation (~50-55% — THE MEAT). For every `critical` equation:
-     - set up the problem it solves
-     - describe the structure in words (no symbols)
-     - walk each component by ROLE not symbol
-     - check dimensions in plain language
-     - take at least one limiting case
-     - name the symmetry / conservation law
-     - give the geometric or physical picture
-     - drop a Fermi estimate
-     - state the key trick
-     - bridge to the next equation
-   For `important` equations, hit at least: structure-in-words, the key trick, one
-   sanity gate (dimensions OR limiting case), and the bridge.
+4. The physics, equation by equation (~50-55% — THE MEAT). Every `critical` equation
+   per its full chain (defined above in THE CONTRACT). For `important` equations, at
+   least: structure-in-words + key trick + ONE sanity gate (dimensions OR limiting case)
+   + bridge.
 
-5. Predictions / observables (~10%). Walk `observables_and_predictions`: what does the
-   theory predict that an experiment could measure, what's the value with uncertainty,
-   what would falsify it.
+5. Predictions / observables (~10%). Walk `observables_and_predictions`: predicted
+   value with uncertainty, what could measure it, what would falsify it.
 
-6. Experimental status (~5-8%). For experimental / observational papers, this is bigger.
-   Name the apparatus from `experimental_setup`, the dominant systematic, the result.
-   For pure-theory papers, this folds into predictions: what experiment could check
-   this, has any data come in?
+6. Experimental status (~5-8%). Bigger for experimental/observational papers — name
+   the apparatus from `experimental_setup`, the dominant systematic, the result. For
+   pure theory: what experiment could check this, has data come in?
 
-7. Limitations / open questions (~5%). Address everything in
-   `limitations_and_open_questions` by name. What's still unsettled?
+7. Limitations / open questions (~5%). Every entry in `limitations_and_open_questions`
+   addressed by name.
 
-8. Closer (~5%). EXACTLY two things:
-     - One sentence to remember (the elevator pitch, sharper than the cold open).
-     - One concrete 10-minute follow-up: "if you have ten minutes today, look at figure 4
-       in the paper — the residual after subtracting the leading-order prediction is the
-       cleanest way to see what's actually new." Be specific about which section / figure
-       / data release / GitHub repo."""
+8. Closer (~5%). EXACTLY two things: one sentence to remember (sharper than the cold
+   open), and one concrete 10-minute follow-up — name a specific figure, section, or
+   data release. ("If you have ten minutes today, look at figure 4 — the residual after
+   subtracting the leading-order prediction is where the new physics shows up.")"""
 
 
 # Structure block when a plan IS provided — the plan IS the structure.
@@ -555,16 +575,14 @@ def render_plan(
     *,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     outline_yaml: str,
-    taste_profile: str | None = None,  # back-compat; not inlined
-    paper_text: str | None = None,     # back-compat; not inlined
 ) -> str:
     return _prompts.render_plan_template(
         PLAN_EPISODE,
         arxiv_id=arxiv_id,
         title=title,
         taste_profile=taste_profile,
-        paper_text=paper_text,
         outline_yaml=outline_yaml,
     )
 
@@ -573,11 +591,9 @@ def render_teach(
     *,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     paper_text: str,
-    taste_profile: str | None = None,  # back-compat; not inlined
-    inline_voice_guide: bool = True,
-    domain_name: str | None = None,
-outline_yaml: str,
+    outline_yaml: str,
     mode: str = "single_host",
     plan_yaml: str | None = None,
     target_words: int | None = None,

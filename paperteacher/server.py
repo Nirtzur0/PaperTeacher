@@ -272,6 +272,53 @@ def topic_distribution(window: int = 30) -> dict:
 
 
 # ---- tools: audio --------------------------------------------------------
+#
+# Vertex Chirp 3 TTS on a ~2500-word two_host script can take 60–180 seconds
+# end to end (multiple sync calls × the 5000-byte chunk limit + mp3 encode).
+# OpenClaw's MCP tool timeout is well below that, which previously caused
+# render_audio to surface as -32001 to the host, the agent to fall back to
+# text-only delivery, and the file to land on disk seconds after delivery
+# already shipped without the audio. Fix: render_audio fires the work in a
+# background thread and returns IMMEDIATELY with the deterministic path; the
+# host polls `audio_status(arxiv_id)` until ready before sending the voice
+# note. The atomic .mp3.partial → final rename in audio.render() guarantees
+# the host never sees a half-written file.
+
+import threading
+
+# In-flight render state, keyed by arxiv_id. Lives in process memory only;
+# the canonical truth is whether the file exists on disk. This dict just
+# records error reasons so audio_status can surface them.
+_render_state: dict[str, dict] = {}
+_render_lock = threading.Lock()
+
+
+def _audio_path(arxiv_id: str, output_format: str) -> "Path":
+    from pathlib import Path
+    return Path(paths.AUDIO_DIR) / f"paper_{arxiv_id}.{output_format}"
+
+
+def _render_in_background(
+    arxiv_id: str,
+    script: str,
+    mode: str,
+    output_format: str,
+    backend_name: str | None,
+) -> None:
+    try:
+        audio.render(
+            script=script,
+            mode=mode,
+            output_format=output_format,
+            backend=tts.get_backend(backend_name) if backend_name else None,
+            filename=f"paper_{arxiv_id}.{output_format}",
+        )
+        with _render_lock:
+            _render_state[arxiv_id] = {"status": "done"}
+    except Exception as e:  # noqa: BLE001 — errors must reach audio_status
+        log.exception("render_audio background task failed for %s", arxiv_id)
+        with _render_lock:
+            _render_state[arxiv_id] = {"status": "error", "error": str(e)}
 
 
 @mcp.tool()
@@ -281,7 +328,10 @@ def render_audio(
     output_format: str = "mp3",
     backend: str | None = None,
 ) -> dict:
-    """Render the saved script for `arxiv_id` to audio.
+    """Kick off audio rendering for the saved script. Returns IMMEDIATELY
+    with the path the file will land at; the actual TTS runs in a background
+    thread. Poll `audio_status(arxiv_id)` until `ready=true` before sending
+    the voice note.
 
     mode: "single_host" (denser, math-friendly) or "two_host" (parses
           <Person1>/<Person2> tags, stitches with a short pause).
@@ -292,14 +342,51 @@ def render_audio(
     script = storage.load_script(arxiv_id)
     if script is None:
         return {"ok": False, "error": f"no script saved for {arxiv_id}"}
-    out = audio.render(
-        script=script,
-        mode=mode,
-        output_format=output_format,
-        backend=tts.get_backend(backend) if backend else None,
-        filename=f"paper_{arxiv_id}.{output_format}",
-    )
-    return {"ok": True, "audio_path": str(out)}
+    target = _audio_path(arxiv_id, output_format)
+    # If the file already exists, return ready immediately (re-runs are cheap).
+    if target.exists():
+        return {"ok": True, "audio_path": str(target), "status": "done"}
+    with _render_lock:
+        _render_state[arxiv_id] = {"status": "rendering"}
+    threading.Thread(
+        target=_render_in_background,
+        args=(arxiv_id, script, mode, output_format, backend),
+        daemon=True,
+        name=f"render_audio:{arxiv_id}",
+    ).start()
+    return {
+        "ok": True,
+        "audio_path": str(target),
+        "status": "rendering",
+        "hint": "poll audio_status(arxiv_id) until ready=true (typically 60–180s for two_host on Vertex).",
+    }
+
+
+@mcp.tool()
+def audio_status(arxiv_id: str, output_format: str = "mp3") -> dict:
+    """Check whether the rendered audio file exists for `arxiv_id`. Pair with
+    `render_audio` for a fire-and-poll workflow.
+
+    Returns:
+      {"ready": True,  "path": str, "size_bytes": int}      when the file is on disk
+      {"ready": False, "status": "rendering"}               while a background render is running
+      {"ready": False, "status": "error", "error": str}     when the background render failed
+      {"ready": False, "status": "absent"}                  when nothing has been rendered yet
+    """
+    target = _audio_path(arxiv_id, output_format)
+    if target.exists():
+        return {
+            "ready": True,
+            "path": str(target),
+            "size_bytes": target.stat().st_size,
+        }
+    with _render_lock:
+        state = _render_state.get(arxiv_id, {})
+    status = state.get("status", "absent")
+    out: dict = {"ready": False, "status": status}
+    if status == "error":
+        out["error"] = state.get("error", "")
+    return out
 
 
 # ---- prompts: the pipeline stages ----------------------------------------
@@ -345,16 +432,13 @@ async def plan_episode(arxiv_id: str) -> str:
             f"Skip this prompt and run `teach_from_outline` directly."
         )
     p = await _read_routed(arxiv_id)
-    # taste_profile / paper_text are accepted for back-compat by the per-pack
-    # render_plan, but `_prompts.render_plan_template` drops them silently —
-    # the host already has `profile://taste` cached from stage 0, and the
-    # outline carries every claim/equation the planner needs. ~30K-token
-    # win per plan call.
+    # Plan body drops paper_text (outline carries the structural claims; saves
+    # ~30K tokens) but keeps taste_profile — the listener voice anchors which
+    # adjacent works the takes draw from and what depth to land at.
     return render(
         arxiv_id=arxiv_id,
         title=p.title,
-        taste_profile="",
-        paper_text="",
+        taste_profile=profile.read_text_for_prompt(),
         outline_yaml=outline_yaml,
     )
 
@@ -377,23 +461,18 @@ async def teach_from_outline(arxiv_id: str, mode: str = "single_host") -> str:
     plan_yaml = storage.load_plan_yaml(arxiv_id)  # None when no plan saved
     p = await _read_routed(arxiv_id)
     domain = domain_for(arxiv_id)
-    # taste_profile is dropped at the template layer (host has profile://taste).
-    # `inline_voice_guide=False` swaps the ml pack's ~1K-token PRONUNCIATION
-    # GUIDE block for a one-line pointer to `voice-guide://ml`; only the ml
-    # render_teach signature accepts that flag (other packs inline shorter
-    # voice rules directly in the template body).
-    kwargs: dict = {
-        "arxiv_id": arxiv_id,
-        "title": p.title,
-        "taste_profile": "",
-        "paper_text": p.text,
-        "outline_yaml": outline_yaml,
-        "mode": mode,
-        "plan_yaml": plan_yaml,
-    }
-    if domain.name == "ml":
-        kwargs["inline_voice_guide"] = False
-    return domain.render_teach(**kwargs)
+    # taste_profile is the voice anchor — keeps the script as a working-
+    # researcher deep dive instead of a generic abstract paraphrase. Earlier
+    # diet had pulled it out and the script collapsed; restored.
+    return domain.render_teach(
+        arxiv_id=arxiv_id,
+        title=p.title,
+        taste_profile=profile.read_text_for_prompt(),
+        paper_text=p.text,
+        outline_yaml=outline_yaml,
+        mode=mode,
+        plan_yaml=plan_yaml,
+    )
 
 
 @mcp.prompt()

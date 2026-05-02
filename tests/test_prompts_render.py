@@ -96,7 +96,6 @@ def test_render_plan_substitutes_all(tmp_path, monkeypatch):
         arxiv_id="2501.12345",
         title="t",
         taste_profile="domain: ml",
-        paper_text="paper",
         outline_yaml="paper_id: 2501.12345\n",
     )
     _assert_clean(out, "2501.12345")
@@ -222,8 +221,7 @@ def test_plan_prompt_requires_methodological_take(tmp_path, monkeypatch):
     `appears_in` field that forces takes across multiple segments."""
     prompts = _reload_with_home(monkeypatch, tmp_path)
     out = prompts.render_plan(
-        arxiv_id="x", title="t", taste_profile="",
-        paper_text="", outline_yaml="",
+        arxiv_id="x", title="t", taste_profile="", outline_yaml="",
     )
     assert "METHODOLOGICAL" in out
     assert "appears_in" in out

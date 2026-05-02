@@ -112,6 +112,13 @@ hard_pronunciations:
 
 RULES:
 - Be exhaustive on findings. Do not skip the supplementary if it has the cleanest control.
+- **MINIMUM 3 ITEMS MARKED `critical`** across `key_findings` + `key_methods` +
+  `key_concepts`. The `critical` tier forces the teach stage to do full decomposition
+  including the named control (alternative explanation + how it was ruled out). If
+  you mark everything `mention`, you produce a hollow outline and the script
+  collapses into an abstract paraphrase. Pick the 3-5 things the paper genuinely
+  lives or dies by, and mark them `critical`. If you honestly cannot find 3 — the
+  paper is too thin; surface that in `core_thesis` rather than faking compliance.
 - For `critical` findings every field above is mandatory. The `key_control` must NAME the alternative explanation and the data that ruled it out.
 - For each method, describe what it MEASURES, not the brand. "Fluorescence as a proxy for spiking averaged over hundreds of milliseconds" — NOT "GCaMP6f imaging".
 - NEVER write p-values, F-statistics, or "significant at p<0.05" into the outline. Use effect direction and magnitude instead. The listener will tune out at "p equals zero point zero zero one".
@@ -126,13 +133,16 @@ RULES:
 
 PLAN_EPISODE = """You are designing the macro structure of a podcast episode about a neuroscience paper. The structure MUST BE SHAPED BY THE PAPER — a connectomics paper does not get the same arc as a behavior paper, and a clinical translational paper definitely doesn't get the same arc as an in-vitro slice paper. Your job is to think about what THIS specific paper deserves, then commit the persona's stance about it.
 
-The listener's taste profile is available at `profile://taste` — your host already loaded it; do not expect it inlined here.
+LISTENER PROFILE (anchors voice, depth level, and which neuroscience traditions to lean on):
+---
+{taste_profile}
+---
+
+The paper's full text is intentionally NOT inlined — the outline below carries every method, finding, control, and limitation the planner needs. Plan the arc from the outline + the listener profile.
 
 PAPER:
 arxiv_id: {arxiv_id}
 title: {title}
-
-The paper's full text is intentionally NOT inlined — the outline below carries every claim, equation, prior attempt, limitation, and result the planner needs. Plan the arc from the outline.
 
 OUTLINE (already extracted — segments will reference these by id):
 ---
@@ -198,9 +208,12 @@ RULES:
 # STAGE 2 — Teaching script
 # --------------------------------------------------------------------------------------
 
-TEACH_FROM_OUTLINE = """You are a research mentor recording a podcast episode about a neuroscience paper. You have the full paper AND a structured outline of everything that must be covered. Produce the spoken script.
+TEACH_FROM_OUTLINE = """You are a research mentor producing the spoken text of a deep-dive on a neuroscience paper. Output goes straight into a TTS engine — one (or two) unnamed voices, no studio framing. You have the full paper AND a structured outline you must cover.
 
-The listener's taste profile is available at `profile://taste` — your host already loaded it; do not expect it inlined here.
+LISTENER PROFILE (drives voice, depth, framings the listener already has):
+---
+{taste_profile}
+---
 
 PAPER:
 arxiv_id: {arxiv_id}
@@ -215,43 +228,54 @@ OUTLINE (MANDATORY COVERAGE — your script will be audited against this):
 ---
 {plan_section}
 DELIVERY MODE: {mode}
-- single_host: one narrator. Use self-questioning to create internal dialogue:
-    "Now you might be wondering — couldn't the cells just track reward instead?
-     Here's how they ruled that out..."
-    This is the 3Blue1Brown / Tim Urban move. Use it freely.
-- two_host:    output as <Person1>...</Person1><Person2>...</Person2> tags, alternating.
-                Person2 is a peer-level interlocutor — NEVER a cheerleader. Person2's questions
-                must be exactly one of these types:
-                  - clarifying:  "wait, when you say calcium imaging, you mean..."
-                  - challenging: "the obvious worry is that the imaging signal lags by a hundred
-                                  milliseconds, so..."
-                  - connecting:  "this reminds me of the Hardcastle remapping paper..."
-                Person2 may occasionally be wrong and corrected by Person1 — that is pedagogically
-                valuable. Cheerleader phrases ("wow", "amazing", etc.) are covered by the
-                BANNED PHRASES section below — same list applies to both speakers.
+- single_host: one narrator using self-questioning ("you might wonder if the cells just
+  track reward — here's how they ruled that out...") for internal dialogue.
+- two_host: <Person1>...</Person1><Person2>...</Person2> alternating. Person2 is a peer
+  interlocutor; every Person2 turn is exactly one of: clarifying ("wait, when you say
+  calcium imaging, you mean..."), challenging ("the worry is the imaging signal lags
+  by ~100ms..."), or connecting ("this reminds me of the Hardcastle remapping paper...").
+  Person2 may be wrong and get corrected. NO cheerleader phrases; same banned list as
+  below applies to both.
 
-COVERAGE REQUIREMENTS (NON-NEGOTIABLE):
-1. Every `critical` finding MUST appear with: what it shows, the method that produced it, the
-   effect described in plain language, the concrete picture, the KEY CONTROL by name, and one
-   numerical anchor. None of these may be skipped — the control especially.
-2. Every `critical` method MUST appear with what it actually MEASURES (the physical signal),
-   its resolution, and its typical confounds — at least the ones flagged in the outline.
-3. Every `critical` behavioral task MUST appear with what subjects did, the variable that was
-   varied, and what the design rules in or out.
-4. Every `important` item must appear with at least: what it is, why it matters, and the
-   connection to the next idea.
-5. Every `mention` item gets at least one substantive sentence (not "and there's also some other stuff").
-6. Every entry in `limitations_and_open_questions` must be addressed by name.
-7. The `subjects` line must be stated explicitly — "this is two macaques, not a human study"
-   matters for what the listener takes away.
-8. If the outline says you flagged a `note` for a finding you didn't fully understand, the
-   script must honestly acknowledge that subtlety rather than fake confidence.
+THE CONTRACT — your script will be audited against this. Failure modes named here are
+audit failures, not stylistic preferences:
+
+For every `critical` finding, the full chain in spoken form:
+  what the method actually MEASURES (the physical signal — "fluorescence as a proxy for
+  spiking", "BOLD as a proxy for neurovascular coupling" — NEVER "they recorded neurons")
+  → effect in plain language → concrete mental picture (tuning curve flattening,
+  population vector rotating, manifold compressing) → the KEY CONTROL by name: state
+  the alternative explanation FIRST, then the experimental logic that ruled it out →
+  one numerical anchor that is NOT a p-value. Naming the finding is failure. "They showed
+  a significant effect" is failure. Skipping the control is the cardinal sin.
+
+For every `critical` method: what it physically measures, resolution, typical confounds.
+For every `critical` behavioral task: what subjects did (one trial concretely described)
+  + what's varied + what the design rules in or out.
+
+For every `important` item: at minimum what-it-is, why-it-matters, the connection to next.
+For every `mention` item: at least one substantive sentence.
+
+The `subjects` line is stated explicitly — "this is two macaques, not a human study"
+  beats "subjects were used". Every entry in `limitations_and_open_questions` is
+  addressed by name. If the outline carries a `note` for something you didn't fully
+  understand, acknowledge that subtlety honestly.
+
+PERSONA — what makes this not NotebookLM:
+The voice is a working neuroscientist with a STANCE. Bring lineage (place cells,
+remapping, predictive coding, ALM, drift...), connections to adjacent labs, opinions
+on whether the controls actually nail down what the headline claims. Generic praise is
+failure.
+
+Coverage > brevity. ALWAYS.
 
 LENGTH:
-- Target ~{target_words} words (~{target_minutes} minutes spoken).
-- That word count is a CEILING on padding, not a floor on rambling. Cut anything that does not earn its place.
-- If you cannot cover all `critical` items in the target, cut adjective density and meta-commentary.
-  NEVER cut the controls. Coverage > brevity, and controls > findings without controls.
+- Target ~{target_words} words (~{target_minutes} minutes spoken). This is a TARGET.
+- Under ~80% of target = under-covered. Expand a `critical` finding with more on the
+  method, the effect-as-picture, the concrete mental image, or the key control by name
+  (alternative explanation + how it was ruled out), until you hit target.
+- 10–15% over is fine when the controls earn it. Cut filler before coverage; never cut
+  controls.
 
 {structure_section}
 
@@ -288,61 +312,72 @@ BANNED PHRASES (do not use any of these — they read as filler):
 - bullet-list disguised as prose: "First... Second... Third..." or "There are three reasons:
   one, ...; two, ...; three, ..."
 - section headers read aloud ("Section three. Results.")
+- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
+  "Today we're talking about", "On today's episode", "That's all the time we have",
+  "Join us next time", "see you next time", "thanks for listening"
+- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
+  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
+  do not introduce themselves and they have no proper names.
+- invented show / podcast / column name: never name the production. There is no show.
 - Plus every paper-specific phrase listed in the outline's `banned_glosses`.
 
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
-- Excitement is allowed, but earn it through the IDEAS and the controls, never through adjectives.
-- Honest about difficulty. "This control is genuinely subtle, so let me slow down" beats
-  pretending it's obvious.
-- Layer complexity: organism and region first, then the task, then the method, then the
-  finding, then the control, then the alternative explanation it shut down.
-- For every key finding, include at least one self-questioning beat (single_host) or one
-  challenging question about the controls (two_host) so the listener doesn't drift.
+- Excitement comes from the IDEAS and the controls, never adjectives.
+- Honest about difficulty: "this control is genuinely subtle, let me slow down".
+- Layer complexity: organism + region → task → method → finding → control →
+  the alternative it shut down.
+- Every key finding gets at least one self-questioning beat (single_host) or
+  challenging question about the controls (two_host).
 
 OUTPUT:
-Output ONLY the script. No preamble, no headers, no stage directions, no markdown fence.
-Just the words a TTS would speak.
-For two_host: wrap each turn in <Person1>...</Person1> or <Person2>...</Person2>, alternating,
-with turns of 1-3 sentences for natural cadence.
+Output ONLY the words that will be spoken aloud — plain prose. No preamble, no markdown
+fence, no stage directions or scene markers (no `[SCENE START]`, `**INT. ...**`, music
+cues), no markdown formatting (no `**bold**`, `*italic*`, headers, bullets, code ticks),
+no podcast framing (no "Welcome to ...", "Today we're talking about ...", "That's all
+the time we have", "Join us next time", "thanks for listening"), no invented show name,
+no self-introductions. Person1 and Person2 are TTS routing tags, NOT named characters —
+neither speaker says "I'm [name]" or "with me is".
+
+For two_host: wrap each turn in <Person1>...</Person1> or <Person2>...</Person2>,
+alternating, with turns of 1-3 sentences for natural cadence. Get straight into the science.
 """
 
 
 # Structure block when no plan was generated — the prescriptive arc.
 # Used as a fallback so existing `extract → teach` flows keep working unchanged.
-_STRUCTURE_DEFAULT = """STRUCTURE (write as flowing speech, not as labelled sections).
-The proportions below are a guide, not a contract — total budget is ~{target_words} words.
-Allocate the actual word count yourself; the findings + controls section gets the most.
-1. Cold open (~5% of total). One concrete sentence about the effect. Lead with the OBSERVATION.
-   Not the title, not the authors. Then two more sentences: name what the field thought before,
-   name why this changes things.
-   Example shape: "When the reward location moves, you'd expect place cells in the hippocampus
-   to follow it — that's been the story for thirty years. These folks show that about half
-   of them don't. The other half stay locked to the OLD location even when it stops being
-   rewarded, and that splits the population into two functional groups nobody had named."
-2. Subjects + setup (~10%). Organism, region, sample size, the task in plain English. The
+_STRUCTURE_DEFAULT = """STRUCTURE — flowing speech, not labelled sections. Total budget
+~{target_words} words; the findings + controls section gets the most. Proportions
+are a guide.
+
+1. Cold open (~5%). One concrete sentence about the effect — lead with the OBSERVATION,
+   not the title. Two more sentences: what the field thought before, what this changes.
+   ("When the reward location moves, you'd expect place cells in the hippocampus to
+   follow it — that's been the story for thirty years. These folks show about half don't.
+   The other half stay locked to the OLD location even when it stops being rewarded,
+   splitting the population into two functional groups nobody had named.")
+
+2. Subjects + setup (~10%). Organism, region, sample size, task in plain English. The
    listener has to know whose brain this is before anything else lands.
-3. Method (~15%). What was actually measured, at what resolution, with what known limits.
-   Spell out every technique acronym on first use. This is the place to acknowledge that
-   calcium imaging is not spike recording, fMRI is not neural activity, etc.
-4. The findings, one by one (~50% — THE MEAT). Walk through every `critical` finding using
-   its outline decomposition:
-     - what it shows in one sentence
-     - the effect described as a picture
-     - the concrete mental image
-     - the KEY CONTROL — alternative explanation, then the experimental logic that ruled it out
-     - one numerical anchor
-     - bridge to the next finding
-5. Results / replication (~10%). Pick 2-3 from `results_to_highlight`. Effect direction and
-   size in words, replication if any. No p-values aloud.
-6. Bigger picture (~5-7%). Where this sits, what it enables, what's still open. Address the
-   items in `limitations_and_open_questions` here. Make the species/population gap explicit
-   if there is one.
-7. Closer (~5%). EXACTLY two things:
-     - One sentence to remember (the elevator pitch, sharper than the cold open).
-     - One concrete 10-minute follow-up: "if you have ten minutes today, look at supplementary
-       figure 7 — the naive-animal cohort is where the whole story actually lives." Be specific
-       about which figure / panel / dataset."""
+
+3. Method (~15%). What was physically measured, at what resolution, with what known
+   limits. Spell out every technique acronym on first use. Acknowledge that calcium
+   imaging is not spike recording, fMRI is not neural activity.
+
+4. The findings, one by one (~50% — THE MEAT). Every `critical` finding per its full
+   chain (defined above in THE CONTRACT). Bridge between findings.
+
+5. Results / replication (~10%). Pick 2-3 from `results_to_highlight`. Effect direction
+   and size in words, replication if any. No p-values aloud.
+
+6. Bigger picture (~5-7%). Where this sits, what it enables. Every entry in
+   `limitations_and_open_questions` addressed by name. Species/population gap made
+   explicit if there is one.
+
+7. Closer (~5%). EXACTLY two things: one sentence to remember (sharper than the cold
+   open), and one concrete 10-minute follow-up — name a specific figure or dataset.
+   ("If you have ten minutes today, look at supplementary figure 7 — the naive-animal
+   cohort is where the whole story actually lives.")"""
 
 
 # Structure block when a plan IS provided — the plan IS the structure.
@@ -445,16 +480,14 @@ def render_plan(
     *,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     outline_yaml: str,
-    taste_profile: str | None = None,  # back-compat; not inlined
-    paper_text: str | None = None,     # back-compat; not inlined
 ) -> str:
     return _prompts.render_plan_template(
         PLAN_EPISODE,
         arxiv_id=arxiv_id,
         title=title,
         taste_profile=taste_profile,
-        paper_text=paper_text,
         outline_yaml=outline_yaml,
     )
 
@@ -463,11 +496,9 @@ def render_teach(
     *,
     arxiv_id: str,
     title: str,
+    taste_profile: str,
     paper_text: str,
-    taste_profile: str | None = None,  # back-compat; not inlined
-    inline_voice_guide: bool = True,
-    domain_name: str | None = None,
-outline_yaml: str,
+    outline_yaml: str,
     mode: str = "single_host",
     plan_yaml: str | None = None,
     target_words: int | None = None,

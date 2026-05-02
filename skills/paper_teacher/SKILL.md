@@ -88,15 +88,45 @@ combine them in your head.
 
 ## Stage 4 — render and deliver
 
-14. Call `paperteacher.render_audio(arxiv_id=..., mode="two_host")`. The
-    server loads the saved script and renders via the configured TTS backend
-    (defaults to Kokoro; set `PAPERTEACHER_TTS=vertex` or pass `backend="vertex"`
-    to use Google Vertex AI Chirp 3 HD voices). Default speaking rate is 1.1x
-    for a livelier pace. Returns an mp3 path.
-15. Send to WhatsApp as TWO messages:
-    - First (text): `*{title}* — {2-sentence hook}.\nhttps://arxiv.org/abs/{arxiv_id}`
-    - Second (voice note): the mp3 from step 14.
-16. Call `paperteacher.mark_seen(arxiv_id=..., title=..., note="audit:complete",
+14. Call `paperteacher.render_audio(arxiv_id=..., mode="two_host")`. This
+    KICKS OFF the render in a background thread and returns IMMEDIATELY with
+    the deterministic path (`paper_<arxiv_id>.mp3`) and `status: "rendering"`.
+    Vertex Chirp 3 HD on a ~2500-word two_host script takes 60–180 seconds;
+    OpenClaw's MCP tool timeout is shorter than that, which is why we run the
+    work in the background.
+
+15. **Poll `paperteacher.audio_status(arxiv_id=...)` until `ready=true`**
+    before sending the voice note. Suggested cadence: wait 60s, then poll
+    every 15–20s for up to 5 minutes total. Three outcomes:
+    - `ready=true` with `path` and `size_bytes` → audio is on disk, proceed
+      to step 16.
+    - `ready=false, status="rendering"` → keep waiting; a long script + a
+      slow Vertex region can legitimately take 3 minutes.
+    - `ready=false, status="error"` → the background render hit an exception
+      (the `error` field has the message). Send the text hook (step 16a) but
+      skip the voice note, and tell the user briefly why audio failed.
+
+16. Send to WhatsApp as TWO SEPARATE messages, in this exact order. This is a
+    HARD ordering requirement — the listener needs to know what they're about
+    to hear before the audio starts playing in their headphones. Do not merge
+    them, do not invert them, do not skip the text.
+
+    a. **First, the text hook** — send this and wait for it to deliver before
+       moving on. Format:
+       ```
+       *{title}* — {2-sentence hook}.
+       https://arxiv.org/abs/{arxiv_id}
+       ```
+       The hook is two sentences: (1) the surprising claim or question the
+       paper takes on, (2) why it matters. Borrow phrasing from the outline's
+       `core_thesis` and `stake_claim` (where present); do not just paraphrase
+       the abstract.
+
+    b. **Then, the voice note** — send the mp3 at the path returned by
+       `audio_status` (or by step-14's `audio_path`, same value) as the
+       second message. Only after the text has been delivered AND
+       `audio_status.ready=true` came back.
+17. Call `paperteacher.mark_seen(arxiv_id=..., title=..., note="audit:complete",
     tags=[...])`. Use 2-4 topic tags from a stable vocabulary
     (`info-geometry`, `optimization`, `attention`, `rl`, `interpretability`,
     `architecture`, `theory`, `empirical`, etc.) so `topic_distribution` is

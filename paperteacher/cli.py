@@ -109,7 +109,6 @@ def prompt_plan(arxiv_id: str) -> None:
         arxiv_id=arxiv_id,
         title=paper.title,
         taste_profile=profile.read_text_for_prompt(),
-        paper_text=paper.text,
         outline_yaml=outline_yaml,
     ))
 

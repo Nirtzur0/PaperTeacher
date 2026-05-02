@@ -274,7 +274,6 @@ def test_render_plan_substitutes_all(tmp_path, monkeypatch):
         arxiv_id="2603.12345",
         title="t",
         taste_profile="domain: physics",
-        paper_text="paper",
         outline_yaml="paper_id: 2603.12345\n",
     )
     _assert_clean(out, "2603.12345")
