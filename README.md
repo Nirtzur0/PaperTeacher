@@ -1,189 +1,149 @@
 # PaperTeacher
 
-Daily research-paper podcast for WhatsApp. A personal NotebookLM, but actually
-technical.
+A personal research-paper podcast that doesn't gloss the math. One paper a
+day, picked from arXiv / HuggingFace / NBER / bioRxiv, taught through a
+three-stage pipeline that forces full coverage of every equation, finding,
+and identifying assumption — then rendered to a voice note and delivered
+over WhatsApp.
 
-One paper a day, picked from HuggingFace Daily Papers and arXiv, taught
-through a **3-stage decompose-then-execute pipeline** that forces full
-coverage of every equation and concept (no glossing). Narrated by your
-choice of [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (local,
-free) or Google Vertex AI Text-to-Speech (Chirp 3 HD voices). Delivered
-by [OpenClaw](https://openclaw.ai).
-
-## Why decompose-then-execute
-
-Single-shot "read paper → write 15-min script" is where models gloss the
-hard math. The fix is to extract a structured outline of every equation
-and concept FIRST, then make the script-writing pass treat that outline
-as a mandatory coverage contract, then audit and regenerate if anything
-was skipped.
+If NotebookLM is two cheerful AIs paraphrasing the abstract, this is a
+working researcher walking you through every component of every critical
+equation, with a stance about what's actually new versus clever reframing.
 
 ```
-read_paper
-   ↓
-extract_outline    ← stage 1: enumerate every equation, decompose each
-   ↓                          (problem solved, role of each component, key
-   save_outline              trick, geometric picture, numerical example).
-   ↓                         Validated against a Pydantic schema on save.
-teach_from_outline ← stage 2: write script with outline as coverage contract
-   ↓                          (critical items get full decomposition;
-   save_script               banned phrases listed; ~2500-word ceiling).
-   ↓
-audit_coverage     ← stage 3: blunt audit. recommendation: ship |
-   save_audit                 regenerate_with_gaps | regenerate_from_scratch.
-   ↓
-render_audio (Kokoro local | Vertex AI TTS)
-   ↓
-WhatsApp: text hook + voice note
+read paper → extract outline → teach script → audit coverage → render audio
+   ar5iv    │     stage 1    │   stage 2    │    stage 3    │  Vertex TTS
+            │  (Pydantic ✓)  │              │ (Pydantic ✓)  │
 ```
+
+## Why three stages
+
+Single-shot "read paper → write 15-min script" is exactly where models
+gloss the hard math. The fix is to extract the structure first, then make
+the script-writing pass treat it as a coverage contract, then audit and
+regenerate if anything was skipped.
+
+| Stage | Input | Output | Validated against |
+|---|---|---|---|
+| 1 — extract | full paper + listener profile | YAML outline (every equation, decomposed) | Pydantic schema on save |
+| 2 — teach | outline + paper + profile | spoken script (~2500 words) | banned-phrases + voice rules |
+| 3 — audit | outline + script | YAML report: ship \| regen-with-gaps \| regen-from-scratch | Pydantic schema on save |
+
+Stage 1 is where depth is decided. The schema requires **at minimum 3
+items marked `critical`**, and every critical equation carries: structure
+in words, role of each component (the role, never the symbol), key trick,
+geometric picture, numerical walkthrough, and bridge to the next equation.
+Stage 2 has zero room to dodge — anything marked critical gets the full
+chain spoken aloud, or the audit fails it.
 
 This is structured *workflow*, not handcrafted output. Every word still
-comes from the model — we just make it impossible to skip the hard parts.
+comes from the host LLM — we just make it impossible to skip the hard parts.
 
 ## Architecture
 
 ```
-  cron @ 08:00
-       │
-       ▼
-┌──────────────────┐    MCP    ┌────────────────────────────────┐
-│ OpenClaw skill   │◄─────────►│ paperteacher MCP server        │
-│ (openclaw/       │           │                                │
-│  SKILL.md)       │           │ tools:                         │
-│                  │           │  • fetch_trending_papers       │
-│ chains the 3     │           │  • read_paper                  │
-│ pipeline stages  │           │  • save_outline / get_outline  │
-│ via the host's   │           │  • save_script  / get_script   │
-│ LLM (the host's  │           │  • save_audit                  │
-│ choice — Claude  │           │  • render_audio (local Kokoro) │
-│ subscription,    │           │  • mark_seen / list_seen       │
-│ Gemini API key,  │           │                                │
-│ etc.)            │           │ prompts (the 3 stages):        │
-│                  │           │  • extract_outline             │
-│ ↓ WhatsApp       │           │  • teach_from_outline          │
-└──────────────────┘           │  • audit_coverage              │
-                               │                                │
-                               │ resources:                     │
-                               │  • profile://taste             │
-                               │  • outline://{arxiv_id}        │
-                               └──────────────────┬─────────────┘
-                                                  │ Kokoro-82M (local)
-                                                  ▼
-                                                mp3
+   cron @ 08:00
+        │
+        ▼
+┌──────────────────┐    MCP    ┌──────────────────────────────┐
+│ host agent       │◄─────────►│ paperteacher MCP server      │
+│ (OpenClaw,       │           │                              │
+│  Claude Code,    │           │ tools                        │
+│  Claude Desktop) │           │  • fetch_trending_papers     │
+│                  │           │  • read_paper                │
+│ chains the three │           │  • save_outline / get_outline│
+│ pipeline stages  │           │  • save_script  / get_script │
+│ via the host's   │           │  • save_audit                │
+│ LLM (Pro / Flash │           │  • render_audio (async)      │
+│ / Claude / etc.) │           │  • audio_status (poll)       │
+│                  │           │  • mark_seen / mark_skipped  │
+│                  │           │  • topic_distribution        │
+│ ↓ WhatsApp       │           │                              │
+└──────────────────┘           │ prompts (the three stages)   │
+                               │  • extract_outline           │
+                               │  • plan_episode (opt-in)     │
+                               │  • teach_from_outline        │
+                               │  • audit_coverage            │
+                               │                              │
+                               │ resources                    │
+                               │  • profile://taste           │
+                               │  • outline://{arxiv_id}      │
+                               │  • voice-guide://{domain}    │
+                               └──────────────┬───────────────┘
+                                              │ Vertex Chirp 3
+                                              │  or Kokoro-82M
+                                              ▼
+                                            mp3
 ```
 
-- **MCP server** = thin tools + the three pipeline prompts. Provider-agnostic.
-  The LLM call lives in the host. Pydantic-validated saves catch bad LLM
-  output at the boundary, not three stages later.
-- **OpenClaw skill** = the orchestrator. Chains the three stages and a single
-  retry loop, handles cron, sends to WhatsApp.
-- **TTS** = pluggable backend (`paperteacher.tts`). Pick one:
-  - `kokoro` — local Kokoro-82M. Free, runs on your laptop, no API keys.
-  - `vertex` — Google Vertex AI Chirp 3 HD voices. Higher quality, needs ADC.
-  Select via `PAPERTEACHER_TTS=kokoro|vertex` or the `--backend` CLI flag.
+Three things to notice:
 
-## Project layout
+1. **PaperTeacher itself never calls an LLM.** The host drives inference;
+   the server exposes tools, prompts, and Pydantic-validated saves. Provider
+   choice (Gemini Pro, Claude, GPT, local Qwen) lives where it should — with
+   the host. Subscription auth lives there too.
 
-```
-paperteacher/
-├── __init__.py
-├── paths.py            # filesystem layout + tunable constants (core)
-├── storage.py          # unified persistence: seen / skipped / outlines / scripts / audits (core)
-├── tts.py              # TTS backend abstraction: Kokoro | Vertex AI (core)
-├── audio.py            # script orchestration: stitching, mp3/wav, atomic write (core)
-├── server.py           # MCP server, entry `paperteacher` (core)
-├── cli.py              # standalone CLI, entry `paperteacher-cli` (core)
-├── domain.py           # Domain protocol + registry + active-domain resolver
-└── domains/
-    ├── __init__.py     # namespace (intentionally empty)
-    ├── _common.py      # cross-domain types: AuditReport, ParseError, Candidate, PaperText
-    ├── ml/             # the "ml" domain pack
-    │   ├── __init__.py # MLDomain class + registration
-    │   ├── models.py   # Pydantic: Outline / Equation / Concept (ML-specific)
-    │   ├── prompts.py  # the three stage prompts (ML-specific)
-    │   ├── discovery.py# HF Daily + arXiv RSS
-    │   └── reader.py   # arXiv HTML → HF → arXiv abstract fallback
-    ├── physics/        # the "physics" domain pack
-    │   ├── __init__.py # PhysicsDomain class + registration
-    │   ├── models.py   # Outline w/ dimensional check, limiting case,
-    │   │               #  symmetries, observables, experimental setup
-    │   ├── prompts.py  # physics-shaped prompts (sanity gates, no-tensor-aloud)
-    │   ├── discovery.py# arXiv physics RSS + INSPIRE-HEP REST
-    │   └── reader.py   # arXiv HTML → HF → arXiv abstract fallback
-    └── econ/           # the "econ" domain pack
-        ├── __init__.py # EconDomain class + registration
-        ├── models.py   # Outline w/ genre, identification, specifications,
-        │               #  estimates (with economic_translation), robustness
-        ├── prompts.py  # econ-shaped prompts (identification gate, no-symbols)
-        ├── discovery.py# NBER RSS + arXiv econ.* / q-fin.* RSS
-        └── reader.py   # arXiv HTML chain | NBER abstract page (id-routed)
+2. **`render_audio` is fire-and-poll.** Vertex TTS on a 2500-word script
+   takes 60–180s; longer than most MCP timeouts. The tool returns
+   immediately with the deterministic path; the host polls `audio_status`
+   until `ready=true`. Atomic write means no partial files.
 
-skills/paper_teacher/
-└── SKILL.md            # OpenClaw skill (loaded via skills.load.extraDirs)
-```
+3. **Pydantic validates at the boundary.** Bad LLM output fails loudly with
+   a usable error message instead of silently corrupting downstream stages.
 
-### Domain packs
+## Domain packs
 
-A **domain** bundles the subject-specific bits of the pipeline — the outline
-schema, the prompt templates, discovery sources, the reader. The orchestration
-framework (storage, audio, TTS, MCP server, CLI) is domain-agnostic and routes
-through `paperteacher.domain.active_domain()`.
+Each pack ships its own outline schema, prompt templates, discovery sources,
+and reader. The framework (storage, audio, TTS, MCP server, CLI) is
+domain-agnostic.
 
-The active domain resolves from (first hit wins):
-1. `PAPERTEACHER_DOMAIN` env var
-2. A `domain: <name>` line in the listener profile (`~/.paperteacher/profile.md`)
-3. Default `"ml"`
+| Pack | Sources | Outline shape | What's audited |
+|---|---|---|---|
+| `ml` | HuggingFace Daily, arXiv (cs.LG, stat.ML, math.ST...), Semantic Scholar | equations + concepts, with prior-attempts, ablations, assumption-boundaries | concrete-then-abstract, anti-anthropomorphism, baseline-with-numbers, named techniques operationalized |
+| `physics` | arXiv (hep-th, hep-ph, gr-qc, astro-ph, cond-mat, quant-ph), INSPIRE-HEP | equations with **dimensional check + limiting case + symmetries / Noether + Fermi estimate**, observables with falsifiability | no tensor notation aloud, regime named explicitly, "by symmetry" requires naming the symmetry |
+| `neuro` | bioRxiv, Europe PMC, Semantic Scholar | findings with **method + key control by name**, behavioral tasks, subjects | what method physically measures, control alternative-explanation-then-logic, no p-values aloud |
+| `econ` | NBER, arXiv (econ.*, q-fin.*) | identification block + specifications (voice_description) + estimates (economic_translation) + robustness checks | "X causes Y" requires identification in same beat, every coefficient paired with economic translation |
 
-Currently shipped:
-- `ml` — math-heavy ML / CS papers from arXiv + HF Daily.
-- `physics` — physics papers from arXiv (hep-th, hep-ph, gr-qc, astro-ph,
-  cond-mat, quant-ph by default) plus INSPIRE-HEP for the HEP family. The
-  outline schema carries dimensional-check / limiting-case / symmetry /
-  conservation-law fields per equation, plus first-class observables (with
-  uncertainty + falsifiability) and experimental-setup entries; the
-  teach-prompt's voice-first rules forbid reading tensor / index notation
-  aloud and require a named limit for any "in the appropriate limit" phrase.
-- `econ` — economics + quantitative-finance papers from NBER's new-papers
-  RSS plus arXiv `econ.*` / `q-fin.*`. The outline schema is genre-aware
-  (`empirical_causal`, `structural`, `asset_pricing`, `pure_theory`,
-  `survey`) and centers on `identification` (source of variation, key
-  assumption, what breaks if it fails), `specifications` written as spoken
-  sentences, and `estimates` carrying an `economic_translation` so a
-  coefficient becomes "a one-sd rise raises Y by 3% of its mean" in the
-  script. Voice-first rules ban "X causes Y" without identification and
-  "the result is robust" without naming the checks.
+Adding a new domain is four files (`models.py`, `prompts.py`, `discovery.py`,
+`reader.py`) and one `register_domain("name", ...)` call. The factory in
+`domains/_common.make_domain()` wires the protocol.
 
-To add a new domain, create `paperteacher/domains/<name>/__init__.py` with
-a class conforming to the `Domain` protocol and call `register_domain(
-"<name>", YourClass)` at module level. Add `from .domains import <name>`
-to `_ensure_bundled_domains_loaded` in `paperteacher/domain.py`.
+## Listener profile
 
-State lives under `~/.paperteacher/` (override with `PAPERTEACHER_HOME`):
-- `profile.md` — listener taste profile (copy from `config/profile.example.md`)
-- `preferred.yaml` — optional preferred-authors allowlist (copy from
-  `config/preferred.example.yaml`); off by default
-- `seen.jsonl` — delivered papers
-- `outlines/{id}.yaml` — stage 1 output, validated
-- `scripts/{id}.txt` — stage 2 output
-- `audits/{id}.yaml` — stage 3 output, validated
-- `audio/paper_{arxiv_id}.mp3` — rendered episodes
-- `pipeline.jsonl` — structured event log
+Your preferences live at `~/.paperteacher/profile.md` as markdown with a
+few structured fields. **The host should never ask you about length or
+mode — they're answered here.**
 
-### Preferred-authors allowlist (optional)
+```yaml
+name: ...
+fields:
+  - machine learning theory
+  - mathematical ML (information geometry, optimal transport)
+  - reasoning and interpretability
 
-Bias discovery toward specific researchers (Anthropic interpretability folks,
-DeepMind, FAIR, anyone whose work you don't want to miss). When
-`~/.paperteacher/preferred.yaml` exists, every discovered candidate whose
-authors match a configured name (case-insensitive substring) gets a score
-boost so the host LLM's selection step sees those papers near the top.
+known_well:
+  - transformers, attention, scaling laws
+  - convex and stochastic optimization
 
-```bash
-cp config/preferred.example.yaml ~/.paperteacher/preferred.yaml
-$EDITOR ~/.paperteacher/preferred.yaml   # add/remove names
+skip_unless_unusually_strong:
+  - benchmark-only papers without theory
+  - prompt-engineering papers
+
+voice:
+  - PhD friend who connects fields
+  - intuition before formalism
+  - geometric and physical analogies preferred
+
+# structured fields — read by code:
+domains: ml, physics, neuro, econ
+length_target_minutes: 15
+script_mode: two_host
+speaking_rate: 1.1
 ```
 
-Off when the file is absent. Match is on author *name* — arXiv RSS doesn't
-expose institution, so to bias toward a lab list its key researchers.
+The free-form sections drive style; the structured fields drive
+mechanics. Resolution order: `PAPERTEACHER_*` env var → profile line →
+framework default. See `config/profile.example.md`.
 
 ## Quick start
 
@@ -191,117 +151,147 @@ expose institution, so to bias toward a lab list its key researchers.
 # core install (no TTS yet — pick one below)
 pip install -e .
 
-# pick a TTS backend (you can install both and switch via env var)
+# pick a TTS backend
 pip install -e '.[tts-kokoro]'   # local, free, no keys
-pip install -e '.[tts-vertex]'   # Google Vertex AI; auth via ADC
+pip install -e '.[tts-vertex]'   # Google Vertex AI; auth via gcloud ADC
 
-# copy the example profile to ~/.paperteacher/profile.md and edit it
+# copy the example profile and edit
 mkdir -p ~/.paperteacher
 cp config/profile.example.md ~/.paperteacher/profile.md
 $EDITOR ~/.paperteacher/profile.md
 
 # select a backend (default is kokoro)
 export PAPERTEACHER_TTS=vertex
+```
 
-# one-paper end-to-end (manual, no MCP host) ----------------------------
+For Vertex TTS, run `gcloud auth application-default login` once — no API
+key needed.
+
+## End-to-end CLI run (no MCP host)
+
+```bash
 paperteacher-cli discover --categories cs.LG,stat.ML
 paperteacher-cli prompt extract 2603.20105 | your-llm > outline.yaml
 paperteacher-cli save-outline 2603.20105 -f outline.yaml
-paperteacher-cli prompt teach 2603.20105 | your-llm > script.txt
+paperteacher-cli prompt teach 2603.20105   | your-llm > script.txt
 paperteacher-cli save-script 2603.20105 -f script.txt
-paperteacher-cli prompt audit 2603.20105 | your-llm > audit.yaml
+paperteacher-cli prompt audit 2603.20105   | your-llm > audit.yaml
 paperteacher-cli save-audit 2603.20105 -f audit.yaml
 paperteacher-cli render 2603.20105 --backend vertex
 paperteacher-cli seen mark 2603.20105
 ```
 
-ffmpeg is needed for mp3 (via pydub). `brew install ffmpeg` /
-`apt install ffmpeg`. Or pass `--output-format wav` to `render`.
+Each `prompt` command renders to stdout; pipe through any LLM. Each `save-*`
+command runs Pydantic validation and writes to `~/.paperteacher/`.
 
-For Vertex AI TTS, authenticate once with
-`gcloud auth application-default login` (or set
-`GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON path).
+## MCP wiring
 
-### Wire into Claude Code
+### Claude Code / Claude Desktop
 
 ```jsonc
 // ~/.claude/mcp.json
 { "mcpServers": { "paperteacher": { "command": "paperteacher" } } }
 ```
 
-Then in Claude Code, the three stage prompts appear as slash commands.
-The host LLM walks through `extract → save_outline → teach → save_script
-→ audit → save_audit → render_audio` automatically.
+The three stage prompts appear as slash commands. The host walks
+`extract → save_outline → teach → save_script → audit → save_audit →
+render_audio → audio_status → done`.
 
-### Wire into OpenClaw
-
-OpenClaw loads skills directly from the repo via `skills.load.extraDirs` in
-`~/.openclaw/openclaw.json` — no copying required. Add two entries:
+### OpenClaw (the daily-cron path)
 
 ```jsonc
 // ~/.openclaw/openclaw.json
 {
   "skills": {
-    "load": {
-      "extraDirs": [
-        "/absolute/path/to/PaperTeacher/skills"
-      ]
-    }
+    "load": { "extraDirs": ["/abs/path/to/PaperTeacher/skills"] }
   },
   "mcp": {
     "servers": {
       "paperteacher": {
         "command": "uv",
-        "args": ["run", "--directory", "/absolute/path/to/PaperTeacher",
+        "args": ["run", "--extra", "tts-vertex", "--directory",
+                 "/abs/path/to/PaperTeacher",
                  "python", "-m", "paperteacher.server"],
-        "description": "PaperTeacher MCP server"
+        "env": { "PAPERTEACHER_TTS": "vertex" }
       }
     }
   }
 }
 ```
 
-The skill at `skills/paper_teacher/SKILL.md` chains every stage and handles
-the regenerate-on-gaps loop with a hard one-retry limit. The MCP server runs
-in-place via `uv run` — pull the repo, edit, restart OpenClaw.
+`skills/paper_teacher/SKILL.md` chains every stage end-to-end and ships the
+audio over WhatsApp. The MCP server runs in-place via `uv run` — pull the
+repo, edit, restart OpenClaw.
 
-**Coexistence with other OpenClaw projects:** PaperTeacher's MCP server
-(`paperteacher`) and skill (`paper-teacher`) are independently named, store
-all state under `~/.paperteacher/`, and don't share filesystem or configuration
-with sibling projects (e.g. AuctionScanner). Both can run on the same
-WhatsApp allowlist and the same cron schedule without interfering.
+For OpenClaw's main agent to know to invoke the skill on "give me a paper",
+add a paper-teacher block to `~/.openclaw/workspace/AGENTS.md` telling it
+to read `profile://taste` and never ask about length / mode. Otherwise the
+chat lane will helpfully ask you preference questions whose answers live
+in your profile.
+
+## State on disk
+
+```
+~/.paperteacher/
+├── profile.md                  # your taste / preferences (you write this)
+├── preferred.yaml              # optional preferred-authors allowlist
+├── seen.jsonl                  # delivered papers, with topic tags
+├── skipped.jsonl               # the backlog (considered but not picked)
+├── pipeline.jsonl              # structured event log
+├── meta/{id}.json              # which domain pack handled which paper
+├── outlines/{id}.yaml          # stage-1 output, Pydantic-validated
+├── plans/{id}.yaml             # stage-1.5 output (opt-in planner)
+├── scripts/{id}.txt            # stage-2 output
+├── audits/{id}.yaml            # stage-3 output, Pydantic-validated
+└── audio/paper_{id}.mp3        # rendered episodes
+```
+
+All filesystem. No DB. `cat`-debuggable.
+
+## Preferred authors (optional)
+
+Bias discovery toward specific researchers. When `~/.paperteacher/preferred.yaml`
+exists, every candidate whose authors substring-match a configured name
+gets a score boost so the host's selection step sees those papers near the
+top. Off when the file is absent.
+
+```bash
+cp config/preferred.example.yaml ~/.paperteacher/preferred.yaml
+$EDITOR ~/.paperteacher/preferred.yaml
+```
+
+Match is on author *name* — arXiv RSS doesn't expose institution, so to
+bias toward a lab list its key researchers.
+
+## TTS
+
+Two backends, same render path:
+
+| Backend | Cost | Quality | Setup |
+|---|---|---|---|
+| `kokoro` | free, local | solid for monologue, Apple Silicon ~real-time | `pip install -e '.[tts-kokoro]'` |
+| `vertex` | per-character (Chirp 3 HD) | studio-grade prosody, two-host clean | `gcloud auth application-default login` |
+
+Select via `PAPERTEACHER_TTS=kokoro|vertex` or `--backend` on the CLI. The
+Vertex sync API has a 5000-byte chunk limit; the backend chunks
+transparently and stitches the audio.
 
 ## MCP surface
 
-**Tools**
-- `fetch_trending_papers(arxiv_categories?, limit?)` — HF Daily + arXiv RSS;
-  seen papers filtered server-side.
-- `read_paper(arxiv_id, max_chars?)` — full text via fallback chain
-  (arXiv HTML → HF papers → arXiv abstract). Always returns; flags source.
-- `save_outline(arxiv_id, outline_yaml)` — **validates against Pydantic**;
-  returns `{ok: false, error, raw_preview}` on schema mismatch so the host can
-  re-prompt with the error included.
-- `get_outline(arxiv_id)` / `save_script(...)` / `get_script(...)`
-- `save_audit(arxiv_id, audit_yaml)` — validates, returns the recommendation
-  so the host can branch without re-parsing.
-- `render_audio(arxiv_id, mode?, output_format?, backend?)` — render the
-  saved script. `mode`: `single_host` | `two_host`. `output_format`: `mp3` |
-  `wav`. `backend`: `kokoro` | `vertex` (defaults to `PAPERTEACHER_TTS`).
-- `list_seen()` / `mark_seen(...)`
+**Tools** &nbsp; `fetch_trending_papers` · `read_paper` · `save_outline` ·
+`get_outline` · `save_plan` · `get_plan` · `save_script` · `get_script` ·
+`save_audit` · `render_audio` · `audio_status` · `list_seen` · `mark_seen` ·
+`list_skipped` · `mark_skipped` · `topic_distribution`
 
-**Prompts (the three pipeline stages)**
-- `extract_outline(arxiv_id)` — instructs the host LLM to produce a
-  schema-conformant YAML outline (see the active domain's outline schema —
-  e.g. `paperteacher.domains.ml.models.Outline`).
-- `teach_from_outline(arxiv_id, mode?)` — instructs the host LLM to write
-  the script using the saved outline as mandatory coverage. Includes the
-  banned-phrases list, voice-first rules, and the ~2500-word ceiling.
-- `audit_coverage(arxiv_id)` — instructs the host LLM to blunt-audit the
-  saved script against the saved outline.
+**Prompts** &nbsp; `extract_outline` · `plan_episode` *(optional, per-pack
+opt-in)* · `teach_from_outline` · `audit_coverage`
 
-**Resources**
-- `profile://taste` — the listener's taste profile (markdown).
-- `outline://{arxiv_id}` — saved outline for any paper.
+**Resources** &nbsp; `profile://taste` · `outline://{arxiv_id}` ·
+`voice-guide://{domain}`
+
+`save_*` calls run Pydantic validation and return decision-shaped responses
+(e.g. `save_audit` returns `recommendation`, `coverage_status`, plus
+counts — not the full per-item dump). The host can branch without re-parsing.
 
 ## Why this shape
 
@@ -310,23 +300,29 @@ ship a single PDF-in / mp3-out flow with a generic two-host script writer.
 The shallow banter is what makes them feel weak on technical content.
 
 PaperTeacher inverts that:
-- **Decompose-then-execute** for content depth (the 3-stage pipeline).
-- **Pydantic schemas** validate stage-1 and stage-3 LLM output at the
-  boundary — schema-mismatched payloads fail loudly with usable errors,
+
+- **Decompose-then-execute** for content depth (the three-stage pipeline).
+- **Pydantic schemas validate stage-1 and stage-3 LLM output at the
+  boundary** — schema-mismatched payloads fail loudly with usable errors,
   not silently three stages later.
-- **The host LLM (Claude / Gemini) writes every word** — we just structure
-  the workflow so it can't avoid the hard parts.
-- **Pluggable TTS** — Kokoro local for free / private / offline, or Vertex
-  AI Chirp 3 HD when you want studio-grade prosody. Same render path either way.
+- **The host LLM writes every word** — the server just structures the
+  workflow so it can't avoid the hard parts. Provider-agnostic, model
+  swappable, no LLM API key required by PaperTeacher itself.
+- **Domain packs encode subject-specific failure modes** — physics
+  enforces dimensional analysis and named limits; neuro enforces named
+  controls and what-the-method-physically-measures; econ enforces
+  identification before "X causes Y". Each pack's audit checks for its
+  own glossing patterns.
+- **Pluggable TTS** — Kokoro local for free / private / offline, or
+  Vertex AI Chirp 3 HD when you want studio-grade prosody.
 
-## Subscription auth
+## Cost
 
-PaperTeacher itself never calls an LLM API directly — the host (OpenClaw,
-Claude Code, Claude Desktop) does. So if the host supports Claude Pro/Max
-OAuth, you pay nothing per token; if it uses a Gemini or Anthropic API key,
-you pay whatever the host pays. Provider choice lives where it should:
-with the host.
+PaperTeacher itself doesn't call an LLM, so its only direct cost is TTS:
 
-TTS is a separate decision and is *yours* to make: Kokoro runs entirely on
-your machine (no third-party keys), Vertex AI uses Google Cloud ADC and
-your project's quota.
+- **Kokoro:** $0. Runs locally.
+- **Vertex Chirp 3 HD:** ~$0.016 per 1000 characters. A 2500-word
+  episode is ~15K characters → roughly $0.25/day, $7/month.
+
+LLM cost lives with the host — Pro/Flash/Claude pricing applies there.
+Provider choice is a host concern, not a PaperTeacher concern.
