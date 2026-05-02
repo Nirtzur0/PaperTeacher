@@ -33,11 +33,11 @@ class Method(LenientModel):
     imaging in CA1` is not interchangeable with `extracellular tetrode
     recordings in CA1`, and the limits of each shape what the data can show."""
     id: str
-    name: str                                       # plain-English name (not just an acronym)
-    what_it_measures: str                           # the actual physical signal: fluorescence, BOLD, spike times, ...
-    spatial_temporal_resolution: str = ""           # "single-cell, ~100ms" / "voxel ~2mm, ~1s" / ...
+    name: str = ""
+    what_it_measures: str = ""
+    spatial_temporal_resolution: str = ""
     typical_confounds: list[str] = Field(default_factory=list)
-    teaching_priority: Priority
+    teaching_priority: Priority = "mention"
 
 
 class BehaviorTask(LenientModel):
@@ -46,11 +46,11 @@ class BehaviorTask(LenientModel):
     different claim from one using a free-recall task. Empty for cell-biology
     or anatomy papers without a behavioral component."""
     id: str
-    name: str
-    what_subjects_did: str
-    what_is_varied: str = ""                        # the parametric or categorical variable the analysis hangs on
-    why_this_design: str = ""                       # what the design lets the authors conclude (or rule out)
-    teaching_priority: Priority
+    name: str = ""
+    what_subjects_did: str = ""
+    what_is_varied: str = ""
+    why_this_design: str = ""
+    teaching_priority: Priority = "mention"
 
 
 class Subjects(LenientModel):
@@ -66,15 +66,15 @@ class Finding(LenientModel):
     """The central effect. Mirrors the ML pack's Equation in role: this is
     the thing every listener should be able to retell after the episode."""
     id: str
-    name: str                                       # plain-English name, not "Figure 3"
-    what_it_shows: str                              # one sentence: the effect
-    effect_in_words: str                            # the magnitude/direction described as a picture, no p-values
-    concrete_picture: str = ""                      # a literal mental image — a tuning curve, a raster, a manifold
-    key_control: str = ""                           # the control or alternative explanation ruled out and HOW
-    numerical_anchor: str = ""                      # one concrete number: "the response was three times larger" / "n=8 mice"
+    name: str = ""
+    what_it_shows: str = ""
+    effect_in_words: str = ""
+    concrete_picture: str = ""
+    key_control: str = ""
+    numerical_anchor: str = ""
     bridge_to_next: str = ""
-    teaching_priority: Priority
-    note: str | None = None                         # honesty escape hatch — "I don't have a clean intuition for this"
+    teaching_priority: Priority = "mention"
+    note: str | None = None
 
 
 class Concept(LenientModel):
@@ -82,26 +82,26 @@ class Concept(LenientModel):
     place fields, replay). Same shape as ML — kept identical so the planner
     can treat it generically."""
     id: str
-    name: str
-    plain_english: str
-    why_it_matters: str
-    teaching_priority: Priority
+    name: str = ""
+    plain_english: str = ""
+    why_it_matters: str = ""
+    teaching_priority: Priority = "mention"
 
 
 class Result(LenientModel):
     """A statistical or replication-level result — not the central finding,
     but the supporting numbers (n, effect size, replicated in N labs, ...)."""
     id: str
-    claim: str
-    what_it_demonstrates: str
+    claim: str = ""
+    what_it_demonstrates: str = ""
     why_surprising: str | None = None
 
 
 class Outline(LenientModel):
     paper_id: str
-    type: PaperType
-    core_thesis: str
-    gap_filled: str
+    type: PaperType = "experimental"
+    core_thesis: str = ""
+    gap_filled: str = ""
     subjects: Subjects = Field(default_factory=Subjects)
     key_concepts: list[Concept] = Field(default_factory=list)
     key_methods: list[Method] = Field(default_factory=list)

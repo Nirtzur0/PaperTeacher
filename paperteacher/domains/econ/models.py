@@ -73,12 +73,12 @@ class Identification(LenientModel):
     single most common gloss in econ pop-sci.
     """
 
-    strategy: IDStrategy
-    source_of_variation: str          # "the 1996 welfare reform rollout across states"
-    key_assumption: str               # "parallel trends between expansion and non-expansion states"
-    assumption_defense: str           # how the paper defends the assumption (1-2 sentences)
-    what_breaks_if_violated: str      # what alternative explanation re-opens
-    teaching_priority: Priority
+    strategy: IDStrategy = "none"
+    source_of_variation: str = ""
+    key_assumption: str = ""
+    assumption_defense: str = ""
+    what_breaks_if_violated: str = ""
+    teaching_priority: Priority = "mention"
 
 
 class Specification(LenientModel):
@@ -91,15 +91,15 @@ class Specification(LenientModel):
     """
 
     id: str                           # SP1, SP2, ...
-    purpose: str                      # baseline DiD / first-stage IV / event study / heterogeneity
-    outcome: str                      # plain English: "household consumption (CEX)"
-    treatment_or_regressor: str
+    purpose: str = ""
+    outcome: str = ""
+    treatment_or_regressor: str = ""
     controls: str = ""
     fixed_effects: str = ""
     cluster_level: str = ""
     sample: str = ""
-    voice_description: str
-    teaching_priority: Priority
+    voice_description: str = ""
+    teaching_priority: Priority = "mention"
 
 
 class StructuralEquation(LenientModel):
@@ -112,11 +112,11 @@ class StructuralEquation(LenientModel):
     """
 
     id: str                           # SE1, SE2, ...
-    name: str                         # "Euler equation", "no-arbitrage pricing condition"
-    what_it_says: str                 # plain English, 1-2 sentences
-    voice_picture: str                # geometric or story analog
-    role_in_argument: str             # what this equation does for the paper
-    teaching_priority: Priority
+    name: str = ""
+    what_it_says: str = ""
+    voice_picture: str = ""
+    role_in_argument: str = ""
+    teaching_priority: Priority = "mention"
 
 
 class StructuralModel(LenientModel):
@@ -125,13 +125,13 @@ class StructuralModel(LenientModel):
     field unset rather than inventing one.
     """
 
-    agents: str                       # who's in the model
-    preferences_or_objective: str     # what they maximize
-    technology_or_constraints: str    # what they're up against
-    equilibrium_concept: str          # Walrasian / Nash / sequential / rational expectations
+    agents: str = ""
+    preferences_or_objective: str = ""
+    technology_or_constraints: str = ""
+    equilibrium_concept: str = ""
     parameters_estimated: list[str] = Field(default_factory=list)
     parameters_calibrated: list[str] = Field(default_factory=list)
-    teaching_priority: Priority
+    teaching_priority: Priority = "mention"
 
 
 class Estimate(LenientModel):
@@ -143,21 +143,21 @@ class Estimate(LenientModel):
     """
 
     id: str                           # ES1, ES2, ...
-    parameter_name: str               # "ATT", "minimum-wage employment elasticity", "alpha"
-    point_estimate: str               # left as string — could be "0.034 (0.012)" or "-0.07"
+    parameter_name: str = ""
+    point_estimate: str = ""
     std_error_or_ci: str = ""
-    unit: EstimateUnit
-    economic_translation: str
+    unit: EstimateUnit = "level"
+    economic_translation: str = ""
     comparable_benchmarks: list[str] = Field(default_factory=list)
-    teaching_priority: Priority
+    teaching_priority: Priority = "mention"
 
 
 class RobustnessCheck(LenientModel):
     id: str                           # RC1, RC2, ...
-    check_type: RobustnessType
-    what_it_rules_out: str            # which alternative explanation it closes off
-    result_summary: str               # what happened to the headline
-    headline_survives: bool
+    check_type: RobustnessType = "alt_specification"
+    what_it_rules_out: str = ""
+    result_summary: str = ""
+    headline_survives: bool = False
 
 
 class Mechanism(LenientModel):
@@ -166,8 +166,8 @@ class Mechanism(LenientModel):
     effect without nailing the mechanism.
     """
 
-    proposed_channel: str
-    evidence_for_channel: str
+    proposed_channel: str = ""
+    evidence_for_channel: str = ""
     alternatives_ruled_out: str = ""
 
 
@@ -178,15 +178,15 @@ class FactorModelComparison(LenientModel):
     lists indexed together.
     """
 
-    nested_models: list[str]          # ["CAPM", "FF3", "FF5", "q-factor"]
-    alpha_per_model: list[str]        # parallel to nested_models; e.g. ["0.42% (t=2.8)", ...]
-    survives_all_models: bool
-    interpretation: str               # what the surviving (or fading) alpha tells us
+    nested_models: list[str] = Field(default_factory=list)
+    alpha_per_model: list[str] = Field(default_factory=list)
+    survives_all_models: bool = False
+    interpretation: str = ""
 
 
 class PolicyImplication(LenientModel):
-    policy_question: str              # "should the EITC be expanded?"
-    magnitude_in_policy_units: str    # "a $1k EITC top-up raises labor force participation by ~0.4pp"
+    policy_question: str = ""
+    magnitude_in_policy_units: str = ""
     caveats: str = ""
 
 
@@ -211,9 +211,9 @@ class Outline(LenientModel):
     """
 
     paper_id: str
-    genre: PaperGenre
-    core_thesis: str
-    gap_filled: str
+    genre: PaperGenre = "empirical_causal"
+    core_thesis: str = ""
+    gap_filled: str = ""
 
     # Empirical-causal block
     identification: Identification | None = None

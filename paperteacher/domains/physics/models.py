@@ -70,8 +70,8 @@ class EquationComponent(LenientModel):
     term is there at all.
     """
 
-    role: str
-    intuition: str
+    role: str = ""
+    intuition: str = ""
     what_if_removed: str = ""
 
 
@@ -86,9 +86,9 @@ class Equation(LenientModel):
     """
 
     id: str
-    english_name: str
-    what_it_solves: str
-    structure_in_words: str
+    english_name: str = ""
+    what_it_solves: str = ""
+    structure_in_words: str = ""
     components: list[EquationComponent] = Field(default_factory=list)
 
     # --- physics-specific sanity gates ----------------------------------
@@ -122,16 +122,16 @@ class Equation(LenientModel):
     but Fermi-style estimation is the physics tradition."""
 
     bridge_to_next: str = ""
-    teaching_priority: Priority
+    teaching_priority: Priority = "mention"
     note: str | None = None
 
 
 class Concept(LenientModel):
     id: str
-    name: str
-    plain_english: str
-    why_it_matters: str
-    teaching_priority: Priority
+    name: str = ""
+    plain_english: str = ""
+    why_it_matters: str = ""
+    teaching_priority: Priority = "mention"
     historical_thread: str = ""
     """Optional one-liner placing the concept in tradition. e.g. "this is
     the modern descendant of Lorentz's local-time idea, sharpened by
@@ -145,7 +145,7 @@ class Observable(LenientModel):
     """
 
     id: str
-    name: str
+    name: str = ""
     """e.g. "branching ratio of B → K μ⁺μ⁻", "shift in the CMB TT power
     spectrum near ℓ ≈ 200", "transition temperature of the superconducting
     phase"."""
@@ -173,11 +173,11 @@ class ExperimentalSetup(LenientModel):
     """
 
     id: str
-    apparatus: str
+    apparatus: str = ""
     """e.g. "ATLAS detector, Run 3 (139 fb⁻¹)", "JWST NIRSpec G395M",
     "LIGO Hanford + Livingston, O4 run"."""
 
-    what_is_measured: str
+    what_is_measured: str = ""
     key_systematic: str = ""
     """Dominant source of uncertainty. e.g. "luminosity calibration
     (2.4%)", "instrument PSF wavelength dependence", "calibration of the
@@ -192,16 +192,16 @@ class Result(LenientModel):
     """
 
     id: str
-    claim: str
-    what_it_demonstrates: str
+    claim: str = ""
+    what_it_demonstrates: str = ""
     why_surprising: str | None = None
 
 
 class Outline(LenientModel):
     paper_id: str
-    type: PaperType
-    core_thesis: str
-    gap_filled: str
+    type: PaperType = "theoretical"
+    core_thesis: str = ""
+    gap_filled: str = ""
 
     historical_context: list[str] = Field(default_factory=list)
     """1-3 short threads placing the work in tradition. Optional but

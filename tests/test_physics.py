@@ -183,14 +183,16 @@ def test_outline_invalid_yaml_raises_parse_error():
         models.parse_outline("not: valid: yaml: at all: [")
 
 
-def test_outline_missing_required_field_raises_parse_error():
+def test_outline_missing_optional_field_still_parses():
     from paperteacher.domains.physics import models
-    from paperteacher.domains._common import ParseError
 
-    # `core_thesis` is required; omit it
-    bad = "paper_id: x\ntype: theoretical\ngap_filled: y\n"
-    with pytest.raises(ParseError):
-        models.parse_outline(bad)
+    # The schema is intentionally lenient: missing content fields default
+    # to empty strings rather than raising, so a partial outline always
+    # round-trips and stage 2 can work with whatever was extracted.
+    partial = "paper_id: x\ntype: theoretical\ngap_filled: y\n"
+    out = models.parse_outline(partial)
+    assert out.paper_id == "x"
+    assert out.core_thesis == ""
 
 
 # ---- prompts ------------------------------------------------------------

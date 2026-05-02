@@ -16,44 +16,38 @@ PaperType = Literal["theoretical", "empirical", "position", "survey"]
 
 
 class EquationComponent(LenientModel):
-    role: str
-    intuition: str
+    role: str = ""
+    intuition: str = ""
     what_if_removed: str = ""
 
 
 class Equation(LenientModel):
     id: str
-    english_name: str
-    what_it_solves: str
-    structure_in_words: str
+    english_name: str = ""
+    what_it_solves: str = ""
+    structure_in_words: str = ""
     components: list[EquationComponent] = Field(default_factory=list)
     key_trick: str = ""
     geometric_picture: str = ""
     numerical_walkthrough: str = ""
     bridge_to_next: str = ""
-    teaching_priority: Priority
+    teaching_priority: Priority = "mention"
     note: str | None = None
 
 
 class Concept(LenientModel):
     id: str
-    name: str
-    plain_english: str
-    why_it_matters: str
-    # The single most pedagogically powerful field added during the world-class
-    # upgrade: the concrete instance the script should LEAD with before any
-    # abstract definition. "Concrete-then-abstract" is unambiguous in
-    # pedagogy research and was the move shared by every world-class explainer
-    # surveyed (Sanderson, Karpathy, distill.pub). Optional so older outlines
-    # still parse.
+    name: str = ""
+    plain_english: str = ""
+    why_it_matters: str = ""
     first_concrete_instance: str = ""
-    teaching_priority: Priority
+    teaching_priority: Priority = "mention"
 
 
 class Result(LenientModel):
     id: str
-    claim: str
-    what_it_demonstrates: str
+    claim: str = ""
+    what_it_demonstrates: str = ""
     why_surprising: str | None = None
     # Provenance fields. The reproducibility literature documents accuracy
     # variance up to 90% across identical runs with different seeds — every
@@ -76,8 +70,8 @@ class PriorAttempt(LenientModel):
     response to a specific failure mode.
     """
 
-    name: str               # "softmax attention", "vanilla policy gradient", ...
-    what_failed: str        # the specific failure mode this paper addresses
+    name: str = ""          # "softmax attention", "vanilla policy gradient", ...
+    what_failed: str = ""   # the specific failure mode this paper addresses
 
 
 class Ablation(LenientModel):
@@ -89,9 +83,9 @@ class Ablation(LenientModel):
     it costs Y" instead of vague "various ablations confirm".
     """
 
-    component_removed: str
-    metric_delta: str         # "drops from 87.3 to 82.1 on GLUE"
-    implies: str              # "the gating, not the depth, carries the gain"
+    component_removed: str = ""
+    metric_delta: str = ""    # "drops from 87.3 to 82.1 on GLUE"
+    implies: str = ""         # "the gating, not the depth, carries the gain"
 
 
 class Assumption(LenientModel):
@@ -102,15 +96,15 @@ class Assumption(LenientModel):
     they break is what separates an honest explanation from a marketing one.
     """
 
-    assumption: str
-    where_it_breaks: str
+    assumption: str = ""
+    where_it_breaks: str = ""
 
 
 class Outline(LenientModel):
     paper_id: str
-    type: PaperType
-    core_thesis: str
-    gap_filled: str
+    type: PaperType = "empirical"
+    core_thesis: str = ""
+    gap_filled: str = ""
     # One sentence committing to a stake: "if this paper is right, X
     # changes." Forces the model out of summary-mode into having a position
     # the script can defend or push against. Empty by default for older outlines.
@@ -185,10 +179,10 @@ def parse_outline(text: str) -> Outline:
 
 class Segment(LenientModel):
     id: str                                                 # seg_01, seg_02, ...
-    role: str                                               # free-form; see prompt for suggested roles
-    covers: list[str] = Field(default_factory=list)         # outline ids (eq_/con_/res_)
-    callbacks: list[str] = Field(default_factory=list)      # prior seg_ ids this builds on
-    purpose: str                                            # one line: what this must accomplish
+    role: str = ""
+    covers: list[str] = Field(default_factory=list)
+    callbacks: list[str] = Field(default_factory=list)
+    purpose: str = ""
 
 
 class Take(LenientModel):
@@ -199,13 +193,13 @@ class Take(LenientModel):
     when the segment role is `critique` or when context calls for an aside.
     """
 
-    claim: str       # the opinion itself, in the professor's voice
-    evidence: str    # what in the paper or field supports it (one line)
+    claim: str = ""
+    evidence: str = ""
 
 
 class EpisodePlan(LenientModel):
     paper_id: str
-    arc: list[Segment]
+    arc: list[Segment] = Field(default_factory=list)
     takes: list[Take] = Field(default_factory=list)
     sits_alongside: list[str] = Field(default_factory=list)  # 1-3 adjacent works/lines of work
     why_now: str = ""                                        # what makes this paper land today

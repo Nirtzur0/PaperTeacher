@@ -44,32 +44,32 @@ class LenientModel(BaseModel):
 
 
 class MissingItem(LenientModel):
-    id: str
+    id: str = ""
     name: str = ""
     what_was_said: str = ""
-    what_is_missing: str
-    severity: Priority
+    what_is_missing: str = ""
+    severity: Priority = "mention"
 
 
 class GlossedItem(LenientModel):
-    id: str
-    quote: str
-    why_its_a_gloss: str
+    id: str = ""
+    quote: str = ""
+    why_its_a_gloss: str = ""
 
 
 class VoiceFirstViolation(LenientModel):
-    quote: str
-    why: str
+    quote: str = ""
+    why: str = ""
 
 
 class AuditReport(LenientModel):
-    coverage_status: AuditCoverage
+    coverage_status: AuditCoverage = "partial"
     items_missing: list[MissingItem] = Field(default_factory=list)
     items_glossed: list[GlossedItem] = Field(default_factory=list)
     banned_phrases_used: list[str] = Field(default_factory=list)
     voice_first_violations: list[VoiceFirstViolation] = Field(default_factory=list)
-    overall_assessment: str
-    recommendation: AuditRecommendation
+    overall_assessment: str = ""
+    recommendation: AuditRecommendation = "ship"
 
     @classmethod
     def from_yaml(cls, text: str) -> "AuditReport":
