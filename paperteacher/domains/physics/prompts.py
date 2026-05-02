@@ -135,13 +135,6 @@ limitations_and_open_questions:
   - <subtle issues the authors acknowledge — quote or paraphrase>
   - <natural extensions worth thinking about>
 
-banned_glosses:
-  # Specific phrases that, if used in the script for THIS paper, would be hand-waving.
-  - <e.g., "by symmetry, this term vanishes" — without naming WHICH symmetry>
-  - <e.g., "the standard machinery">
-  - <e.g., "in the appropriate limit" — without naming the limit>
-  - <e.g., "of order one" — without saying in units of what>
-
 acronyms_to_spell_out:
   # First-use expansions for TTS. Common physics ones: QCD, QED, EFT, RG, EW,
   # CMB, ΛCDM, NMSSM, MSSM, LIGO, JWST, etc.
@@ -389,29 +382,14 @@ physics rather than re-skinned math):
   expansion parameter is the fine-structure constant, around one over one-thirty-seven, so
   three-loop terms are dropping in by a factor of a million each."
 
-BANNED PHRASES (do not use any of these — they read as filler or as cargo-cult physics):
-- "delve into", "dive into", "let's explore", "navigating the landscape", "in the realm of",
-  "at the intersection of"
-- "in conclusion", "to summarize", "in this episode", "today we're going to talk about",
-  "without further ado"
-- "fascinating", "intriguing", "wow", "amazing", "cool", "awesome", "remarkable", "incredible"
-- "as is well known", "trivially", "obviously", "clearly", "the equation simply states"
-- "by symmetry, this term vanishes" — without naming WHICH symmetry
-- "in the appropriate limit" — without naming the limit
-- "of order one" / "natural" — without saying in units of what or compared to what
-- "the standard machinery" / "standard techniques" / "standard arguments"
-- "trivially Lorentz invariant" / "trivially gauge invariant"
-- "the equations of motion follow" — the listener should be told HOW they follow
-- bullet-list disguised as prose: "First... Second... Third..." or "There are three reasons:"
-- section headers read aloud ("Section three. Results.")
-- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
-  "Today we're talking about", "On today's episode", "That's all the time we have",
-  "Join us next time", "see you next time", "thanks for listening"
-- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
-  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
-  do not introduce themselves and they have no proper names.
-- invented show / podcast / column name: never name the production. There is no show.
-- Plus every paper-specific phrase listed in the outline's `banned_glosses`.
+PHYSICS HYGIENE (substantive, not stylistic):
+- Don't say "by symmetry, this term vanishes" without naming WHICH symmetry.
+- Don't say "in the appropriate limit" without naming the limit.
+- Don't say "of order one" or "natural" without specifying in units of what or
+  compared to what.
+- "Standard machinery / standard arguments / equations of motion follow" — say
+  HOW they follow, in plain language. "Trivially gauge/Lorentz invariant" — show
+  the invariance argument in one sentence.
 
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
@@ -517,7 +495,7 @@ For each `critical` and `important` item in the outline, decide whether the scri
 - For `experimental_setup` (if present): the script should name the apparatus and the dominant systematic. Saying "with high precision" without naming the systematic is a gloss.
 - For limitations: the script must acknowledge them by name, not gloss with "of course there are some open questions".
 
-Also check for glossing — places where the script "covers" something but does so in a way the outline explicitly forbade (anything matching `banned_glosses`), or in a way that violates physics-specific anti-glossing rules:
+Also check for glossing — places where the script technically "covers" something but does so in a hand-wavy single clause without the operational meaning. Physics-specific glosses to flag:
 - "by symmetry, X vanishes" without naming the symmetry
 - "in the appropriate limit" without naming the limit
 - "of order one" / "natural" without naming the scale
@@ -538,8 +516,7 @@ items_glossed:
   # Things technically "covered" but in a way that constitutes hand-waving.
   - id: <ID>
     quote: <the glossing phrase from the script>
-    why_its_a_gloss: <e.g., "says 'by symmetry the cross-term vanishes' without naming which symmetry — the outline explicitly bans this">
-banned_phrases_used: [<list any banned phrases that appeared verbatim, including physics-specific ones>]
+    why_its_a_gloss: <e.g., "says 'by symmetry the cross-term vanishes' without naming which symmetry">
 voice_first_violations:
   # Places where the script reads symbols / tensors aloud, includes LaTeX, says "alpha"
   # for a generic Greek letter rather than naming what it stands for, or otherwise breaks

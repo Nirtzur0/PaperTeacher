@@ -96,12 +96,6 @@ limitations_and_open_questions:
   - <subtle issues the authors acknowledge — quote or paraphrase>
   - <natural extensions worth thinking about>
 
-banned_glosses:
-  # specific phrases that, if used in the script for THIS paper, would constitute hand-waving
-  - <e.g., "they recorded from neurons">
-  - <e.g., "the cells were active during the task">
-  - <e.g., "they showed a significant effect">
-
 acronyms_to_spell_out:
   # spell out brain-region and technique acronyms on first reading
   - <ABBR>: <full form — e.g., dlPFC: dorsolateral prefrontal cortex>
@@ -316,26 +310,6 @@ VOICE-FIRST RULES (HARD):
   cells". "Two and a half millivolts" not "2.5 mV".
 - Short sentences beat comma-laden ones. TTS pauses at periods, barely at commas.
 
-BANNED PHRASES (do not use any of these — they read as filler):
-- "delve into", "dive into", "delve", "let's explore", "navigating the landscape",
-  "in the realm of", "at the intersection of"
-- "in conclusion", "to summarize", "in this episode", "today we're going to talk about",
-  "without further ado"
-- "fascinating", "intriguing", "wow", "amazing", "cool", "awesome", "remarkable", "incredible"
-- "as is well known", "trivially", "obviously", "clearly", "they showed a significant effect",
-  "the cells were active during the task", "they recorded from neurons"
-- bullet-list disguised as prose: "First... Second... Third..." or "There are three reasons:
-  one, ...; two, ...; three, ..."
-- section headers read aloud ("Section three. Results.")
-- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
-  "Today we're talking about", "On today's episode", "That's all the time we have",
-  "Join us next time", "see you next time", "thanks for listening"
-- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
-  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
-  do not introduce themselves and they have no proper names.
-- invented show / podcast / column name: never name the production. There is no show.
-- Plus every paper-specific phrase listed in the outline's `banned_glosses`.
-
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
 - Excitement comes from the IDEAS and the controls, never adjectives.
@@ -432,7 +406,7 @@ For each `critical` and `important` item in the outline, decide whether the scri
 - For concepts: the script must convey what the concept IS and why it matters.
 - For limitations: the script must acknowledge them by name, not gloss with "of course there are some open questions".
 
-Also check for glossing — places where the script "covers" something but does so in a way the outline explicitly forbade (anything matching `banned_glosses`).
+Also check for glossing — places where the script technically "covers" something but does so in a hand-wavy single clause without the operational meaning the listener would need ("they showed a significant effect", "they recorded from neurons", "the cells were active during the task").
 
 OUTPUT — pure YAML, no preamble, no markdown fence:
 
@@ -448,8 +422,7 @@ items_glossed:
   # Things technically "covered" but in a way that constitutes hand-waving.
   - id: <ID>
     quote: <the glossing phrase from the script>
-    why_its_a_gloss: <e.g., "calls calcium imaging 'just neural recording' which the outline explicitly bans">
-banned_phrases_used: [<list any banned phrases that appeared verbatim>]
+    why_its_a_gloss: <e.g., "calls calcium imaging 'just neural recording' without explaining what the signal actually is">
 voice_first_violations:
   # Places where the script reads p-values aloud, reads a region acronym un-spelled-out on first use, or otherwise breaks voice-first rules.
   - quote: <the offending phrase>

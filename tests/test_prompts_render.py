@@ -184,9 +184,6 @@ def test_teach_prompt_includes_voice_guide_and_invariants(tmp_path, monkeypatch)
     assert "RESULT-WITH-BASELINE" in out
     # Symbol glossary is referenced as the substitution table.
     assert "symbol_glossary" in out
-    # New banned phrases survive the rewrite.
-    for banned in ("leverage", "great point", "the model learns to", "outperforms"):
-        assert banned in out, f"banned phrase {banned!r} not in prompt"
 
 
 def test_audit_prompt_runs_six_checks(tmp_path, monkeypatch):

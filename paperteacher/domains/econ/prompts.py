@@ -125,30 +125,12 @@ policy_implication:
   magnitude_in_policy_units: <"a $1k EITC top-up raises participation by ~0.4pp on average; equivalent to ~120k workers nationally">
   caveats: <"effects are estimated for single mothers; extrapolation to married households is unsupported">
 
-banned_glosses:
-  # specific phrases that, if used in the script for THIS paper, would constitute hand-waving.
-  # MUST INCLUDE: any "X causes Y" without naming identification, any "robust" without naming the checks
-  - <e.g., "the paper shows that minimum wage raises unemployment">
-  - <e.g., "they controlled for everything">
-
 acronyms_to_spell_out:
-  # spell out as letters: OLS, GLS, GMM, 2SLS, IV, RDD, ATE, ATT, LATE, IRF, VAR, SVAR, VECM,
-  # SDF, HJM, FF3, FF5, FOMC, BLS, BEA, NIPA, GDP, CPI, PPI, MPC, MPS, EIS, CRRA, CES.
-  # Pronounce as words: GARCH, Tobit, Probit, Logit, CAPM (cap-em).
-  # DiD: prefer "diff-in-diff" not "D-i-D".
+  # any acronym in the paper that should be expanded on first reading aloud
   - <ABBR>: <full form>
 
 hard_pronunciations:
-  # author or method names TTS will mangle. Examples:
-  #   Acemoğlu: AH-jeh-MOH-loo
-  #   Piketty:  pee-keh-TEE
-  #   Bénassy-Quéré: beh-nah-SEE keh-RAY
-  #   Modigliani: moh-deel-YAH-nee
-  #   Mirrlees: MIR-leez
-  #   Mankiw: MAN-kew
-  #   Schumpeter: SHOOM-pay-ter
-  #   Bartik: BAR-tik
-  #   Engle (ARCH/GARCH): ENG-gul
+  # author or method names TTS will mangle
   - <term>: <PHO-ne-tic>
 
 RULES:
@@ -349,41 +331,19 @@ VOICE-FIRST RULES (HARD):
 - No LaTeX, no symbols in output, no "the equation states".
 - Spell out acronyms on first use per `acronyms_to_spell_out`. After first use, you may use the
   acronym only if the listener will retain it.
-- Use phonetic guidance per `hard_pronunciations`. e.g., "Acemoğlu (AH-jeh-MOH-loo)" the first time.
+- Use phonetic guidance per `hard_pronunciations` on first mention.
 - Short sentences beat comma-laden ones. TTS pauses at periods, barely at commas.
 - Numbers become words in awkward positions: "two and a half percentage points" not "2.5pp".
   Basis points: "twenty-five basis points" not "25 bps".
 
-BANNED PHRASES (do not use any of these — they read as filler or as the canonical econ glosses):
-- "delve into", "dive into", "let's explore", "navigating the landscape",
-  "in the realm of", "at the intersection of"
-- "in conclusion", "to summarize", "in this episode", "today we're going to talk about"
-- "fascinating", "intriguing", "wow", "amazing", "cool", "awesome", "remarkable", "incredible"
-- "as is well known", "trivially", "obviously", "clearly"
-- "this paper shows X causes Y" — ONLY say "causes" when identification has been named in the
-  same beat. Use "is associated with", "predicts", or "the design estimates" otherwise.
-- "they controlled for everything" — controls don't fix endogeneity; this conflates OLS-with-controls
-  and identified causal effects.
-- "the result is robust" — without naming WHICH checks were run and WHAT they ruled out.
-- "the coefficient is significant" — without effect size and units.
-- "the instrument is valid because it's correlated with X" — relevance is the easy condition;
-  the exclusion restriction is the hard one. Never gloss the exclusion restriction.
-- "fixed effects solve omitted variables" — they only sweep out time-invariant or unit-invariant
-  confounders.
-- "p less than 0.05 means the effect is real" — misstates frequentist inference.
-- "the R-squared was X, so the model fits well" — R-squared is almost never the headline in
-  causal work.
-- "this is the first paper to..." — almost always false; reviewers hate it.
-- bullet-list disguised as prose ("First... Second... Third...")
-- section headers read aloud ("Section three. Results.")
-- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
-  "Today we're talking about", "On today's episode", "That's all the time we have",
-  "Join us next time", "see you next time", "thanks for listening"
-- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
-  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
-  do not introduce themselves and they have no proper names.
-- invented show / podcast / column name: never name the production. There is no show.
-- Plus every paper-specific phrase listed in the outline's `banned_glosses`.
+CAUSAL HYGIENE (substantive, not stylistic):
+- Reserve "causes" for when identification has been named in the same beat. Use
+  "is associated with", "predicts", or "the design estimates" otherwise.
+- Don't say "robust" without naming WHICH checks ruled out WHAT. Don't say
+  "significant" without effect size and units. Don't claim instrument validity
+  on relevance alone — name the exclusion restriction.
+- Fixed effects only sweep out time- or unit-invariant confounders; don't claim
+  they "solve omitted variables".
 
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
@@ -478,7 +438,7 @@ For each `critical` and `important` item in the outline, decide whether the scri
 - For `mechanism`: the script must lay out the proposed channel AND the evidence for it.
 - For `limitations_and_external_validity`: must be addressed by name, not glossed.
 
-Also check for glossing — places where the script "covers" something but does so in a way the outline explicitly forbade. The standard econ glosses to flag:
+Also check for glossing — places where the script technically "covers" something but does so in a hand-wavy single clause without the operational meaning the listener would need. Standard econ glosses to flag:
 - "X causes Y" without identification named in the same beat
 - "controlled for everything"
 - "the result is robust" without naming the checks
@@ -502,7 +462,6 @@ items_glossed:
   - id: <ID>
     quote: <the glossing phrase from the script>
     why_its_a_gloss: <e.g., "uses 'X causes Y' without naming the identification strategy in the same beat">
-banned_phrases_used: [<list any banned phrases that appeared verbatim>]
 voice_first_violations:
   # Places where the script reads symbols aloud, includes LaTeX, or otherwise breaks voice-first rules.
   - quote: <the offending phrase>

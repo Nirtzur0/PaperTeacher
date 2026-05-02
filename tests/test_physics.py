@@ -231,8 +231,9 @@ def test_render_audit_substitutes_all(tmp_path, monkeypatch):
         script="Person1: hi. Person2: hello.",
     )
     _assert_clean(out, "2603.12345", "Person1: hi")
-    # The audit must hunt for physics-specific glosses, not just generic ones.
-    assert "in the appropriate limit" in out  # named-as-banned
+    # The audit still flags physics-specific glosses, even after the global
+    # banned-phrase lists were dropped.
+    assert "in the appropriate limit" in out
     assert "by symmetry" in out
 
 

@@ -207,9 +207,7 @@ of TODAY's paper:
 
 ## Style invariants (apply to every script you write)
 
-- Voice-first. No LaTeX. No symbolic equation reading ("sigma sub i" is banned).
+- Voice-first. No LaTeX. No symbolic equation reading ("sigma sub i" is wrong).
 - Intuition before formalism, ALWAYS.
 - 15-minute target, ~2500 words. Cut anything that doesn't earn its place.
 - Honest about what's subtle. "This part is genuinely subtle" beats faking confidence.
-- Banned phrases: "delve", "fascinating", "in conclusion", "let's explore",
-  "in the realm of", and any phrase listed in the outline's `banned_glosses`.

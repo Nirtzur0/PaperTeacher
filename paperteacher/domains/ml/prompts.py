@@ -147,12 +147,6 @@ limitations_and_open_questions:
   - <subtle issues the authors acknowledge — quote or paraphrase>
   - <natural extensions worth thinking about>
 
-banned_glosses:
-  # specific phrases that, if used in the script for THIS paper, would constitute hand-waving
-  - <e.g., "the loss is just MSE">
-  - <e.g., "and then we apply standard techniques">
-  - <e.g., "the model learns to attend to the relevant tokens">
-
 acronyms_to_spell_out:
   # acronyms in the paper that should be expanded on first reading aloud
   - <ABBR>: <full form>
@@ -436,9 +430,9 @@ For every reported number: baseline AND claim-it-is-evidence-for, in the same be
 `assumption_boundaries` (when present): name the one most consequential assumption
   AND where it breaks. Don't bury it in the closer.
 
-Every entry in `limitations_and_open_questions` and every paper-specific phrase in
-  `banned_glosses` is addressed by name. If the outline carries a `note` for something
-  you didn't fully understand, acknowledge that subtlety honestly — don't fake confidence.
+Every entry in `limitations_and_open_questions` is addressed by name. If the outline
+  carries a `note` for something you didn't fully understand, acknowledge that subtlety
+  honestly — don't fake confidence.
 
 PERSONA — what makes this not NotebookLM:
 The voice is a working researcher with a STANCE. Bring lineage (where ideas come from
@@ -512,34 +506,8 @@ failure mode, the surprising observation. The abstract framing comes after.
 
 RESULT-WITH-BASELINE:
 Every quoted number must arrive with the baseline AND the claim it is
-evidence for. "87.3 on GLUE" alone is banned. "87.3 on GLUE, up from
+evidence for. "87.3 on GLUE" alone is bare. "87.3 on GLUE, up from
 84.1, which is evidence that the gating actually transfers" is the form.
-
-BANNED PHRASES (do not use any of these — they read as filler or hype):
-- "delve into", "dive into", "delve", "let's explore", "navigating the landscape",
-  "in the realm of", "at the intersection of", "leverage" (as a verb),
-  "robust" (used as filler), "essentially", "under the hood", "at the end of the day",
-  "sort of", "kind of", "let me unpack that"
-- "in conclusion", "to summarize", "in this episode", "today we're going to talk about",
-  "without further ado"
-- "fascinating", "intriguing", "wow", "amazing", "cool", "awesome", "remarkable", "incredible"
-- "great point", "great question", "Exactly!", "absolutely", "100%"
-- "as is well known", "the equation simply states", "trivially", "obviously", "clearly"
-- "outperforms" without the delta, "state-of-the-art" without the benchmark
-- "the model learns to", "the model decides", "the model understands",
-  "the model wants", "the model figures out"
-- bullet-list disguised as prose: "First... Second... Third..." or "There are three reasons:
-  one, ...; two, ...; three, ..."
-- section headers read aloud ("Section three. Results.")
-- show/podcast framing: "Welcome to", "Welcome back to", "Today we're diving into",
-  "Today we're talking about", "On today's episode", "That's all the time we have",
-  "Join us next time", "see you next time", "thanks for listening"
-- self-introductions: "I'm Alex", "I'm Ben", "with me is", "joined by", any invented
-  host name. Person1 and Person2 are TTS routing tags, NOT named characters — they
-  do not introduce themselves and they have no proper names.
-- invented show / podcast / column / column-name: never name the production. There
-  is no show.
-- Plus every paper-specific phrase listed in the outline's `banned_glosses`.
 
 STYLE:
 - Talk, don't write. "So", "right?", "here's the thing", "the reason this matters is".
@@ -650,7 +618,7 @@ For each `critical` and `important` item in the outline, decide whether the scri
 - For limitations: the script must acknowledge them by name, not gloss with "of course there are some open questions".
 
 CHECK 2 — GLOSSING:
-Places where the script "covers" something but does so in a way the outline explicitly forbade (anything matching `banned_glosses`). Treat single-clause hand-waves as gloss, not coverage.
+Places where the script technically "covers" something but does so in a single hand-wavy clause without the operational meaning the listener would need to actually understand it ("and then we apply standard techniques", "the model learns to attend to the right thing", "it's just MSE"). Treat single-clause hand-waves as gloss, not coverage.
 
 CHECK 3 — FAITHFULNESS / RESULT-WITH-BASELINE:
 For every reported NUMBER in the script, verify it appears with (a) the
@@ -691,8 +659,7 @@ items_glossed:
   # Things technically "covered" but in a way that constitutes hand-waving.
   - id: <ID>
     quote: <the glossing phrase from the script>
-    why_its_a_gloss: <e.g., "calls it 'just MSE' which the outline explicitly bans">
-banned_phrases_used: [<list any banned phrases that appeared verbatim>]
+    why_its_a_gloss: <e.g., "calls it 'just MSE' without explaining what makes it the right loss for this objective">
 voice_first_violations:
   # Symbols-aloud, LaTeX leakage, raw Greek, missed acronym-expansion, etc.
   - quote: <the offending phrase>
