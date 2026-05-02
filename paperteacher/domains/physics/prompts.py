@@ -328,6 +328,21 @@ LENGTH:
 - 10–15% over target is fine when the physics earns it. Cut filler before coverage;
   never cut equation decomposition or the sanity gates.
 
+VARIETY — this is a script for THIS paper, not a template:
+- Two of your episodes about different physics papers must NOT have the same shape. If
+  yours could be transposed onto a different paper unchanged, you're templating, not
+  teaching. Let the paper's argument decide the arc.
+- Pacing is uneven on purpose. Spend the most words on whatever this paper deserves —
+  sometimes the derivation, sometimes the experimental setup, sometimes a single
+  Fermi estimate that reframes the whole thing. There are no fixed proportions.
+- Asides and callbacks earn their place. "Wait, this is the same Wilsonian flow we
+  saw at the start...", "side note: this is what BCS got right and they're now
+  borrowing", "let me take this limit again, it's worth it". Real talks have these.
+- The ending lands for THIS paper. Default: one sentence to remember + one concrete
+  10-minute follow-up (specific figure, data release, or section). Vary if the paper
+  calls for it — a question that the next experiment would settle, a stance about
+  whether this is real signal or systematic.
+
 {structure_section}
 
 VOICE-FIRST RULES (HARD — physics edition):
@@ -424,42 +439,24 @@ alternating, with turns of 1-3 sentences for natural cadence. Get straight into 
 # Structure block when no plan was generated — physics-shaped 8-act default.
 # Used as a fallback so existing `extract → teach` flows keep working unchanged
 # without requiring a planner pass.
-_STRUCTURE_DEFAULT = """STRUCTURE — flowing speech, not labelled sections. Total budget
-~{target_words} words; the equations + sanity-gates section gets the most. Proportions
-are a guide.
+_STRUCTURE_DEFAULT = """SHAPE — pick the arc that serves THIS paper, or invent your own:
 
-1. Cold open (~5%). One surprising sentence — lead with the PHENOMENON or PUZZLE, not
-   the title. Two more sentences: the gap, why we should care. ("Most people think a
-   black hole is a one-way membrane. These folks computed what happens when you push a
-   quantum field across it, and the bookkeeping leaves behind a piece of the field's
-   information nobody can yet account for.")
+▸ DERIVATION ARC (hep-th, math-ph, formal) — open with the puzzle that motivates the
+  construction, walk it step-by-step with sanity gates between hard moves, take a
+  limiting case that recovers known physics, reflect on what computations the
+  formalism enables.
+▸ OBSERVATION ARC (experimental, observational) — open with what you'd expect to see,
+  walk what was actually observed, walk the apparatus and the dominant systematic,
+  land the implication for theory.
+▸ TENSION ARC (results that disagree with theory or other measurements) — open with
+  the number, walk both sides, end on what would resolve it.
+▸ REGIME WALK (phenomenology) — open with the regime + assumptions, walk the
+  calculation, name what experiment could falsify it, what the answer means if it
+  doesn't.
 
-2. Tradition + motivation (~10%). Just enough lineage that the result lands. Address
-   `historical_context` here. Sharpening a 60-year-old story, or genuinely new?
-
-3. Regime setup (~7%). Walk `regime_and_assumptions` explicitly — "weak-coupling,
-   non-relativistic limit, where the expansion converges and the lattice can check us".
-   Without it, every equation that follows is hanging in the air.
-
-4. The physics, equation by equation (~50-55% — THE MEAT). Every `critical` equation
-   per its full chain (defined above in THE CONTRACT). For `important` equations, at
-   least: structure-in-words + key trick + ONE sanity gate (dimensions OR limiting case)
-   + bridge.
-
-5. Predictions / observables (~10%). Walk `observables_and_predictions`: predicted
-   value with uncertainty, what could measure it, what would falsify it.
-
-6. Experimental status (~5-8%). Bigger for experimental/observational papers — name
-   the apparatus from `experimental_setup`, the dominant systematic, the result. For
-   pure theory: what experiment could check this, has data come in?
-
-7. Limitations / open questions (~5%). Every entry in `limitations_and_open_questions`
-   addressed by name.
-
-8. Closer (~5%). EXACTLY two things: one sentence to remember (sharper than the cold
-   open), and one concrete 10-minute follow-up — name a specific figure, section, or
-   data release. ("If you have ten minutes today, look at figure 4 — the residual after
-   subtracting the leading-order prediction is where the new physics shows up.")"""
+Open with a concrete phenomenon — a measurement, a puzzle, a number. Not the title,
+not the authors. THE CONTRACT above tells you what every arc must deliver; the arc
+tells you the order for THIS paper."""
 
 
 # Structure block when a plan IS provided — the plan IS the structure.

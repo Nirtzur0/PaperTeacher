@@ -88,7 +88,12 @@ async def fetch_trending_papers(
     pref = preferred_mod.load()
     if pref is not None:
         preferred_mod.apply(cands, pref)
-    return [c.to_dict() for c in cands]
+    # Strip `summary` (abstract): each candidate carries ~1.2KB of abstract,
+    # and the host only uses title/score/domain to pick one paper. Keeping
+    # abstracts here piles ~200KB of unused text into persistent agent
+    # sessions on every discovery call. read_paper returns the full text
+    # for the selected paper anyway.
+    return [{k: v for k, v in c.to_dict().items() if k != "summary"} for c in cands]
 
 
 @mcp.tool()

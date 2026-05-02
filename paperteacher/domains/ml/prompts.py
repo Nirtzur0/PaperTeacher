@@ -457,6 +457,21 @@ LENGTH:
 - 10–15% over target is fine when the math earns it. Cut filler before coverage; never
   cut equation decomposition, `first_concrete_instance` examples, or numerical anchors.
 
+VARIETY — this is a script for THIS paper, not a template:
+- Two of your episodes about different papers must NOT have the same shape. If yours
+  could be transposed onto a different paper unchanged, you're templating, not teaching.
+  Let the paper's argument decide the arc.
+- Pacing is uneven on purpose. Spend the most words on whatever this paper deserves —
+  sometimes the math, sometimes one ablation, sometimes the historical thread. There
+  are no fixed proportions.
+- Asides and callbacks earn their place. "Wait, this connects back to what we said
+  about the gating...", "side note: this is the same trick as in [adjacent work]",
+  "let me reframe what I just said". Real talks have these; templates don't.
+- The ending lands for THIS paper. Default: one sentence to remember + one concrete
+  10-minute follow-up (specific section, figure, or repo). Vary if the paper calls
+  for it — a question that opens up the field, an anecdote about who's working on
+  this, a stance you're committing to.
+
 {structure_section}
 
 VOICE-FIRST RULES (HARD):
@@ -551,35 +566,21 @@ alternating, with turns of 1-3 sentences for natural cadence. Get straight into 
 
 # Structure block when no plan was generated — the original prescriptive arc.
 # Used as a fallback so existing `extract → teach` flows keep working unchanged.
-_STRUCTURE_DEFAULT = """STRUCTURE — flowing speech, not labelled sections. Total budget
-~{target_words} words; the math section gets the most. Proportions are a guide.
+_STRUCTURE_DEFAULT = """SHAPE — pick the arc that serves THIS paper, or invent your own:
 
-1. Cold open (~5%). One surprising sentence ANCHORED IN A CONCRETE INSTANCE — a number,
-   scenario, or failure mode. Not the title, not the authors. Two more sentences: the
-   gap, why we should care. ("Most people think attention scales like n-squared. These
-   folks made it linear without losing anything — and the reason isn't engineering,
-   it's a geometric observation about what attention actually computes.")
+▸ MYSTERY ARC (surprising results) — open with the surprising fact, walk what the field
+  expected, reveal what they did, walk the math, land the kicker.
+▸ BUILD ARC (theory papers with one key construction) — open with the simpler-thing-
+  that-doesn't-work, walk why, introduce the construction, walk it carefully, reflect
+  on what's actually new vs. notation.
+▸ DETECTIVE ARC (empirical papers) — open with the result that doesn't match priors,
+  walk the ablations as evidence, arrive at the explanation, caveat what it doesn't show.
+▸ TAXONOMY ARC (surveys / position papers) — open with the question the field is asking,
+  walk the families of answers, land on what's actually settled vs. still contested.
 
-2. Context (~10%). Just enough background that the key idea lands. If `prior_attempts`
-   is non-empty, this is where the naive-thing-that-fails pattern earns its space.
-
-3. Key idea (~12%). Plain language first, anchored in the `first_concrete_instance` from
-   the outline. Could-retell-at-dinner test.
-
-4. The math, equation by equation (~55-60% — THE MEAT). Every `critical` equation per
-   its full chain (defined above in THE CONTRACT). Use `symbol_glossary` verbatim.
-
-5. Results (~10%). Pick 2-3 from `results_to_highlight`. Numbers arrive with baseline
-   AND the claim-it-is-evidence-for. The most informative `ablation` lands here, not
-   buried.
-
-6. Bigger picture (~5-7%). Where this sits, what it enables. Address every entry in
-   `limitations_and_open_questions` plus the most consequential `assumption_boundaries`.
-
-7. Closer (~5%). EXACTLY two things: one sentence to remember (sharper than the cold
-   open), and one concrete 10-minute follow-up — name a specific section, figure, or
-   repo. ("If you have ten minutes today, skim section 3.2 — the cancellation-lemma
-   proof is the cleanest thing in the paper.")"""
+Open with a concrete instance — a number, a failure mode, a phenomenon. Not the title,
+not the authors. THE CONTRACT above tells you what every arc must deliver; the arc
+tells you the order in which to deliver it for THIS paper."""
 
 
 # Structure block when a plan IS provided — the plan IS the structure, so the

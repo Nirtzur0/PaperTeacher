@@ -313,6 +313,21 @@ LENGTH:
 - 10–15% over is fine when the design earns it. Cut filler before coverage; never cut
   the identification block or the economic translations.
 
+VARIETY — this is a script for THIS paper, not a template:
+- Two of your episodes about different econ papers must NOT have the same shape. If
+  yours could be transposed onto a different paper unchanged, you're templating, not
+  teaching. Let the paper's argument decide the arc.
+- Pacing is uneven on purpose. Spend the most words on whatever this paper deserves —
+  sometimes identification, sometimes one robustness check that makes or breaks the
+  story, sometimes the structural model. There are no fixed proportions.
+- Asides and callbacks earn their place. "Wait, this assumption is the same one Card
+  flagged in the original critique...", "side note: the IV here is doing more work
+  than the paper admits", "let me restate the economic translation, it matters".
+- The ending lands for THIS paper. Default: one sentence to remember + one concrete
+  10-minute follow-up (specific table, robustness panel, replication file). Vary if
+  the paper calls for it — a policy question, a stance on whether the design
+  generalizes, the next dataset that would settle a residual concern.
+
 {structure_section}
 
 VOICE-FIRST RULES (HARD):
@@ -393,36 +408,23 @@ alternating, with turns of 1-3 sentences for natural cadence. Get straight into 
 """
 
 
-_STRUCTURE_DEFAULT = """STRUCTURE (write as flowing speech, not as labelled sections).
-The proportions below are a guide, not a contract — total budget is ~{target_words} words.
-Allocate the actual word count yourself; the identification + estimates segments get the most.
+_STRUCTURE_DEFAULT = """SHAPE — pick the arc that serves THIS paper, or invent your own:
 
-For empirical_causal papers — recommended shape:
-1. Cold open (~5%). One surprising sentence. Lead with the FACT or RESULT, not the title or authors.
-   Example: "When two states sit on either side of the Mason-Dixon line and one of them expands
-   Medicaid in 2014, the other doesn't, what happens to consumption smoothing? These authors looked,
-   and the answer reorganizes how we think about the income effect."
-2. Setting + question (~10%). What's the policy or natural experiment, what's the outcome we care about.
-3. Identification (~20% — THIS IS THE CONTRACT). Name the source of variation. State the key assumption.
-   Defend it the way the paper defends it. Say what would break it.
-4. Specifications + headline estimate (~25%). Walk the baseline regression as a SPOKEN SENTENCE
-   (voice_description, not symbols). Give the headline coefficient AND the economic_translation
-   in the same beat.
-5. Robustness (~12%). Pick the 2-3 checks that ruled out the most worrying threats. Don't list all of them.
-6. Mechanism (~10%). The "why". The proposed channel + evidence + alternatives ruled out.
-7. Bigger picture + limits (~10%). External validity, where this sits, what's still open.
-8. Closer (~5%). EXACTLY two things:
-     - One sentence to remember.
-     - One concrete 10-minute follow-up: "if you have ten minutes, read Table 5 — the placebo
-       on pre-2010 outcomes is the cleanest part of the paper."
+▸ IDENTIFICATION ARC (empirical_causal) — open with the policy or natural experiment,
+  walk the source of variation, walk the assumption defense, walk the headline plus
+  economic_translation, walk the robustness checks that ruled out the most worrying
+  threats.
+▸ MECHANISM ARC (papers whose contribution is the why) — open with the headline, walk
+  the proposed channel, walk the evidence for THAT channel vs. alternatives.
+▸ MODEL ARC (structural / pure theory) — open with the question the model is built to
+  answer, walk the agents/preferences/technology, walk the equilibrium, walk what
+  reduced-form couldn't have given us.
+▸ FACTOR ARC (asset pricing) — open with the anomaly, walk the factor-model nest
+  (CAPM → FF3 → FF5 → q-factor), land what survives and what that means for the SDF.
 
-For structural / pure_theory papers — collapse identification + robustness, expand structural
-equations + counterfactuals.
-
-For asset_pricing papers — replace identification with the factor-model nest walk; replace
-robustness with sample-period and turnover stress-tests.
-
-For survey papers — taxonomy walk: each segment = one sub-literature."""
+Open with a concrete instance — a policy, a price gap, a coefficient. Not the title,
+not the authors. THE CONTRACT above tells you what every arc must deliver; the arc
+tells you the order for THIS paper."""
 
 
 _STRUCTURE_FROM_PLAN = """STRUCTURE — FOLLOW THE PLAN, NOT A TEMPLATE:

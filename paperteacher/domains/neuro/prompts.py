@@ -277,6 +277,21 @@ LENGTH:
 - 10–15% over is fine when the controls earn it. Cut filler before coverage; never cut
   controls.
 
+VARIETY — this is a script for THIS paper, not a template:
+- Two of your episodes about different neuro papers must NOT have the same shape. If
+  yours could be transposed onto a different paper unchanged, you're templating, not
+  teaching. Let the paper's argument decide the arc.
+- Pacing is uneven on purpose. Spend the most words on whatever this paper deserves —
+  sometimes the controls, sometimes the method's limits, sometimes one population's
+  pre-trial response that flips the interpretation. There are no fixed proportions.
+- Asides and callbacks earn their place. "Wait, this is the same population we said
+  was non-task-modulated five minutes ago...", "side note: this is reminiscent of
+  Hardcastle 2017", "let me re-state the alternative explanation, it matters".
+- The ending lands for THIS paper. Default: one sentence to remember + one concrete
+  10-minute follow-up (specific figure, supplementary panel, dataset). Vary if the
+  paper calls for it — a question that the next experiment would settle, a stance
+  on whether the species/population gap actually carries.
+
 {structure_section}
 
 VOICE-FIRST RULES (HARD):
@@ -346,38 +361,23 @@ alternating, with turns of 1-3 sentences for natural cadence. Get straight into 
 
 # Structure block when no plan was generated — the prescriptive arc.
 # Used as a fallback so existing `extract → teach` flows keep working unchanged.
-_STRUCTURE_DEFAULT = """STRUCTURE — flowing speech, not labelled sections. Total budget
-~{target_words} words; the findings + controls section gets the most. Proportions
-are a guide.
+_STRUCTURE_DEFAULT = """SHAPE — pick the arc that serves THIS paper, or invent your own:
 
-1. Cold open (~5%). One concrete sentence about the effect — lead with the OBSERVATION,
-   not the title. Two more sentences: what the field thought before, what this changes.
-   ("When the reward location moves, you'd expect place cells in the hippocampus to
-   follow it — that's been the story for thirty years. These folks show about half don't.
-   The other half stay locked to the OLD location even when it stops being rewarded,
-   splitting the population into two functional groups nobody had named.")
+▸ FINDING ARC (single-finding papers) — open with the effect, walk the method, land
+  the control, reflect on what the data does and does NOT show.
+▸ CONTROL ARC (papers whose contribution is a better control) — open with what people
+  had been claiming, walk why the previous control wasn't enough, walk the new
+  control, land the corrected picture.
+▸ METHOD ARC (new technique papers) — open with what was unmeasurable before, walk
+  the technique, walk what it reveals, caveat the failure modes.
+▸ TRANSLATIONAL ARC (clinical / translational) — open with the human population,
+  walk the animal mechanism, walk the species/population gap honestly, land what
+  would make this clinically real.
 
-2. Subjects + setup (~10%). Organism, region, sample size, task in plain English. The
-   listener has to know whose brain this is before anything else lands.
-
-3. Method (~15%). What was physically measured, at what resolution, with what known
-   limits. Spell out every technique acronym on first use. Acknowledge that calcium
-   imaging is not spike recording, fMRI is not neural activity.
-
-4. The findings, one by one (~50% — THE MEAT). Every `critical` finding per its full
-   chain (defined above in THE CONTRACT). Bridge between findings.
-
-5. Results / replication (~10%). Pick 2-3 from `results_to_highlight`. Effect direction
-   and size in words, replication if any. No p-values aloud.
-
-6. Bigger picture (~5-7%). Where this sits, what it enables. Every entry in
-   `limitations_and_open_questions` addressed by name. Species/population gap made
-   explicit if there is one.
-
-7. Closer (~5%). EXACTLY two things: one sentence to remember (sharper than the cold
-   open), and one concrete 10-minute follow-up — name a specific figure or dataset.
-   ("If you have ten minutes today, look at supplementary figure 7 — the naive-animal
-   cohort is where the whole story actually lives.")"""
+Open with a concrete observation — an effect, a tuning curve shift, a behavior. Not
+the title, not the authors. State the `subjects` early — "this is two macaques, not
+a human study". THE CONTRACT above tells you what every arc must deliver; the arc
+tells you the order for THIS paper."""
 
 
 # Structure block when a plan IS provided — the plan IS the structure.

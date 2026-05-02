@@ -178,7 +178,9 @@ def test_render_teach_default_and_with_plan(tmp_path, monkeypatch):
         mode="two_host",
     )
     assert "EPISODE PLAN" not in default_out
-    assert "Subjects + setup" in default_out
+    # Default structure is an arc menu, not a 7-section template.
+    assert "FINDING ARC" in default_out
+    assert "CONTROL ARC" in default_out
 
     plan_out = prompts.render_teach(
         arxiv_id="10.1101_x",

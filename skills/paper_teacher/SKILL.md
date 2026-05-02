@@ -54,83 +54,136 @@ combine them in your head.
 6. Produce the YAML. Be exhaustive on equations — if the paper has 12
    numbered equations, your outline references all 12. Better to over-extract.
 7. Call `paperteacher.save_outline(arxiv_id=..., outline_yaml=...)`.
+7a. **Claim the paper now** — call `paperteacher.mark_seen(arxiv_id=..., title=...,
+    note="outline:saved", tags=[...])` *immediately* after the outline lands.
+    This prevents the same paper looping back tomorrow if any later step
+    (plan, script, audit, render, delivery) fails. If you legitimately abandon
+    mid-run, switch to `mark_skipped` with a reason — DO NOT leave the paper
+    unmarked.
+
+## Stage 1.5 — plan the arc (recommended; prevents template-feel)
+
+The teach prompt's default structure is paper-shaped (it gives you an arc
+menu — mystery / build / detective / taxonomy — and tells you to pick or
+invent). Without a plan, the model picks an arc inline during teach. With
+a plan, the planner stage gets dedicated thinking budget for arc design
+and produces *committed takes* the teach stage executes — which is the
+single biggest lever against episodes that feel scripted or interchangeable.
+
+8. Invoke `paperteacher.plan_episode(arxiv_id=...)`. Returns a long
+   instruction asking you to design segments, callbacks, takes (2-5
+   committed opinions, AT LEAST ONE methodological), and where this
+   paper sits in the field.
+9. Produce the YAML plan. Pick segment count for THIS paper (5-9
+   typical; a dense theory paper might want 10, a sharp position paper
+   4). Make sure at least one take is methodological — "the gain is from
+   data filtering, not the architecture; section 4.2 makes this obvious"
+   beats "this is an important contribution".
+10. Call `paperteacher.save_plan(arxiv_id=..., plan_yaml=...)`. The teach
+    prompt automatically picks up the plan from disk on the next call.
+
+Skip this stage only when the paper's structure is genuinely obvious
+(e.g., a single-finding bioRxiv preprint where there's nothing to plan).
+For ML / physics / econ / theory-heavy papers — run it.
 
 ## Stage 2 — write the script with mandatory coverage
 
-8. Invoke `paperteacher.teach_from_outline(arxiv_id=..., mode="two_host")`
-   (or `mode="single_host"` if step 9 says so). This loads the saved outline
-   and returns a long instruction with strict coverage requirements: every
-   `critical` item gets full decomposition, every `important` item gets the
-   trick + bridge, every `mention` item gets one substantive sentence.
-   Banned phrases are listed.
-9. Produce the script. **Default is `mode="two_host"`** — Person1 is the
-   "professor friend" mentor (warm, opinionated, broader-context takes,
-   honest about what's actually new vs. clever reframing). Person2 is a
-   peer-level interlocutor (clarifying, challenging, occasionally wrong
-   and corrected — never cheerleading). Each turn is 1-3 sentences for
-   natural cadence. Single-host is for episodes where the math is so
-   dense that two-voice banter would dilute coverage; default to two_host.
-   Target ~1750 words (~10 min at the configured speaking rate).
-10. Call `paperteacher.save_script(arxiv_id=..., script=...)`.
+11. Invoke `paperteacher.teach_from_outline(arxiv_id=..., mode="two_host")`
+    (or `mode="single_host"` if step 12 says so). Loads the saved outline
+    AND any saved plan from stage 1.5, then returns a long instruction with
+    strict coverage requirements: every `critical` item gets full
+    decomposition, every `important` item gets the trick + bridge, every
+    `mention` item gets one substantive sentence. Banned phrases are listed.
+    The structure block is paper-shaped (arc menu, not 7-section template).
+12. Produce the script. **Default is `mode="two_host"`** — Person1 is the
+    "professor friend" mentor (warm, opinionated, broader-context takes,
+    honest about what's actually new vs. clever reframing). Person2 is a
+    peer-level interlocutor (clarifying, challenging, occasionally wrong
+    and corrected — never cheerleading). Each turn is 1-3 sentences for
+    natural cadence. Single-host is for episodes where the math is so
+    dense that two-voice banter would dilute coverage; default to two_host.
+13. Call `paperteacher.save_script(arxiv_id=..., script=...)`.
 
 ## Stage 3 — audit, and regenerate if glossed
 
-11. Invoke `paperteacher.audit_coverage(arxiv_id=...)`. This loads outline
-    + script and returns a YAML report ending with:
+14. Invoke `paperteacher.audit_coverage(arxiv_id=...)`. Loads outline + script
+    and returns a YAML report ending with:
     `recommendation: ship | regenerate_with_gaps | regenerate_from_scratch`.
-12. If `recommendation: ship`, proceed. If `regenerate_with_gaps`, re-invoke
+15. If `recommendation: ship`, proceed. If `regenerate_with_gaps`, re-invoke
     `teach_from_outline` with the gaps prepended to the prompt as additional
     forced-coverage items, save the new script, and audit ONE more time
     (no infinite loop). If `regenerate_from_scratch`, the outline itself is
     probably wrong — re-run stage 1, then stage 2, then audit.
-13. Don't ship a script that audited as `poor`. Send a text-only message
+16. Don't ship a script that audited as `poor`. Send a text-only message
     explaining why the paper was hard to teach and skip the voice note.
 
 ## Stage 4 — render and deliver
 
-14. Call `paperteacher.render_audio(arxiv_id=..., mode="two_host")`. This
+17. Call `paperteacher.render_audio(arxiv_id=..., mode="two_host")`. This
     KICKS OFF the render in a background thread and returns IMMEDIATELY with
     the deterministic path (`paper_<arxiv_id>.mp3`) and `status: "rendering"`.
     Vertex Chirp 3 HD on a ~2500-word two_host script takes 60–180 seconds;
     OpenClaw's MCP tool timeout is shorter than that, which is why we run the
     work in the background.
 
-15. **Poll `paperteacher.audio_status(arxiv_id=...)` until `ready=true`**
+18. **Poll `paperteacher.audio_status(arxiv_id=...)` until `ready=true`**
     before sending the voice note. Suggested cadence: wait 60s, then poll
     every 15–20s for up to 5 minutes total. Three outcomes:
     - `ready=true` with `path` and `size_bytes` → audio is on disk, proceed
-      to step 16.
+      to step 19.
     - `ready=false, status="rendering"` → keep waiting; a long script + a
       slow Vertex region can legitimately take 3 minutes.
     - `ready=false, status="error"` → the background render hit an exception
-      (the `error` field has the message). Send the text hook (step 16a) but
+      (the `error` field has the message). Send the text hook (step 19a) but
       skip the voice note, and tell the user briefly why audio failed.
 
-16. Send to WhatsApp as TWO SEPARATE messages, in this exact order. This is a
+19. Send to WhatsApp as TWO SEPARATE messages, in this exact order. This is a
     HARD ordering requirement — the listener needs to know what they're about
     to hear before the audio starts playing in their headphones. Do not merge
     them, do not invert them, do not skip the text.
 
-    a. **First, the text hook** — send this and wait for it to deliver before
-       moving on. Format:
+    a. **First, the text hook** — send this and wait for it to deliver
+       before moving on. WhatsApp markup: `*bold*`, `_italic_`, `•` for
+       bullets, blank line for paragraph break. NO Markdown `**bold**` or
+       `## headers` — they don't render. Emoji selectively: 📄 once at
+       the top, 🎧 for the audio tag, 🔗 for the link. Nothing else.
+       Format:
        ```
-       *{title}* — {2-sentence hook}.
-       https://arxiv.org/abs/{arxiv_id}
+       📄 *{title}*
+       _{first author} et al. · arXiv:{arxiv_id}_
+
+       {2-3 sentence hook drawn from outline.core_thesis and
+       outline.stake_claim — the surprising claim, then why it matters.
+       NEVER a paraphrase of the abstract.}
+
+       *Highlights*
+       • {one-line key finding or result, with the number if there is one}
+       • {one-line method / mechanism / what's clever about it}
+       • {one-line caveat, limitation, or what's still open}
+
+       🎧 *{N} min · {single_host|two_host}*
+       🔗 https://arxiv.org/abs/{arxiv_id}
        ```
-       The hook is two sentences: (1) the surprising claim or question the
-       paper takes on, (2) why it matters. Borrow phrasing from the outline's
-       `core_thesis` and `stake_claim` (where present); do not just paraphrase
-       the abstract.
+       Hook content rules:
+       - Pull from the outline, not the abstract. The outline is the
+         structured truth; the abstract is the marketing.
+       - Highlights are 3 bullets. Pick the most concrete, specific lines
+         you can — a number, a named technique, a real caveat. Generic
+         bullets ("the model performs well") are a failure.
+       - Italics for the byline, bold for the title and section headers
+         (Highlights, the duration tag). Don't bold whole sentences.
 
     b. **Then, the voice note** — send the mp3 at the path returned by
-       `audio_status` (or by step-14's `audio_path`, same value) as the
+       `audio_status` (or by step-17's `audio_path`, same value) as the
        second message. Only after the text has been delivered AND
        `audio_status.ready=true` came back.
-17. Call `paperteacher.mark_seen(arxiv_id=..., title=..., note="audit:complete",
-    tags=[...])`. Use 2-4 topic tags from a stable vocabulary
+20. Call `paperteacher.mark_seen(arxiv_id=..., title=..., note="audit:complete",
+    tags=[...])` again with the final tags and `audit:complete` note so the
+    delivery is recorded. (The earlier 7a call already prevents loops; this
+    one annotates the canonical record with topic tags for
+    `topic_distribution`.) Use 2-4 topic tags from a stable vocabulary
     (`info-geometry`, `optimization`, `attention`, `rl`, `interpretability`,
-    `architecture`, `theory`, `empirical`, etc.) so `topic_distribution` is
-    meaningful across episodes.
+    `architecture`, `theory`, `empirical`, etc.).
 
 ## Failure modes
 
