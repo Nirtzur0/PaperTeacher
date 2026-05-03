@@ -20,9 +20,9 @@ from __future__ import annotations
 # STAGE 1 — Extraction
 # --------------------------------------------------------------------------------------
 
-EXTRACT_OUTLINE = """You are extracting the structured outline of an economics or finance research paper BEFORE it gets taught as a podcast. Your job is to be exhaustive about identification and magnitudes — the two things careful econ listeners care about most. Better to over-extract than to miss.
+EXTRACT_OUTLINE = """Extract a structured outline of an econ/finance paper before it gets taught as a podcast. Be exhaustive on identification and magnitudes — the two things econ listeners care about. Better to over-extract than miss.
 
-LISTENER PROFILE (so you know what to flag for extra explanation):
+LISTENER PROFILE:
 ---
 {taste_profile}
 ---
@@ -34,119 +34,103 @@ title: {title}
 {paper_text}
 ---
 
-Modern empirical econ papers live or die by the identifying assumption. Theory papers live or die by the model's economic content. Asset-pricing papers live or die by whether the alpha survives the standard factor models. The outline must surface whichever applies.
-
-OUTPUT — pure YAML, no preamble, no markdown fence, no commentary:
+OUTPUT — pure YAML, no preamble, no markdown fence:
 
 paper_id: {arxiv_id}
 genre: empirical_causal | structural | asset_pricing | pure_theory | survey
-core_thesis: <exactly 2 sentences naming the single most important claim>
-gap_filled: <1 sentence: what was wrong, missing, or unjustified before this paper>
+core_thesis: <2 sentences naming the single most important claim>
+gap_filled: <1 sentence: what was wrong, missing, or unjustified before>
 
-# REQUIRED for genre=empirical_causal. Omit otherwise.
+# REQUIRED for empirical_causal.
 identification:
   strategy: RCT | IV | DiD | RDD | event_study | synthetic_control | shift_share | matching | structural | none
-  source_of_variation: <where the variation comes from. e.g. "the staggered rollout of Medicaid expansion across states 2014–2020">
-  key_assumption: <the SINGLE assumption the design rests on. e.g. "parallel trends between expansion and non-expansion states absent treatment">
-  assumption_defense: <how the paper defends it. event-study pre-trends? balance tests? bandwidth sensitivity? 1-2 sentences>
-  what_breaks_if_violated: <what alternative explanation re-opens. be specific — "selection on time-varying state characteristics correlated with expansion timing">
+  source_of_variation:
+  key_assumption: <the SINGLE assumption the design rests on>
+  assumption_defense: <how the paper defends it (1-2 sentences)>
+  what_breaks_if_violated: <which alternative explanation reopens, specifically>
   teaching_priority: critical | important | mention
 
-# REQUIRED for genre=empirical_causal. Each row is one regression actually run.
+# REQUIRED for empirical_causal. One row per regression.
 specifications:
   - id: SP1
-    purpose: <baseline / first-stage IV / reduced form / event study / heterogeneity / placebo>
-    outcome: <plain English. e.g. "log of household quarterly consumption (CEX)">
-    treatment_or_regressor: <plain English. e.g. "indicator for living in an expansion state after expansion takes effect">
-    controls: <names of controls; "" if none>
-    fixed_effects: <e.g. "state and year-by-quarter">
-    cluster_level: <e.g. "state">
-    sample: <e.g. "households with income below 138% FPL, 2010–2022">
-    voice_description: <THIS is what the realizer will read. Write it as a spoken sentence with NO symbols. "We're regressing log consumption on a treatment dummy, sweeping out anything constant within a state and anything common across states in a given quarter, with errors clustered at the state level. The coefficient on treatment is identified off the staggered timing of expansion across states.">
+    purpose: <baseline / first-stage / reduced form / event study / heterogeneity / placebo>
+    outcome:
+    treatment_or_regressor:
+    controls: <"" if none>
+    fixed_effects:
+    cluster_level:
+    sample:
+    voice_description: <SPOKEN sentence, NO symbols. What's regressed on what, what's swept out, where the variation comes from. The realizer reads this aloud.>
     teaching_priority: critical | important | mention
 
-# REQUIRED for genre=structural OR genre=pure_theory.
+# REQUIRED for structural / pure_theory.
 structural_model:
-  agents: <who's in the model. "households, firms, a government">
-  preferences_or_objective: <"CRRA utility over consumption with discount factor beta">
-  technology_or_constraints: <"Cobb-Douglas production with capital adjustment costs">
-  equilibrium_concept: <"recursive competitive equilibrium" / "Markov perfect" / "rational expectations">
+  agents:
+  preferences_or_objective:
+  technology_or_constraints:
+  equilibrium_concept:
   parameters_estimated: [<list>]
   parameters_calibrated: [<list>]
   teaching_priority: critical | important | mention
 
 structural_equations:
-  # The economic equations of the model — Euler, FOC, no-arbitrage, market-clearing.
-  # NEVER write the LaTeX form; describe what the equation SAYS.
+  # Describe what each equation SAYS, never its LaTeX.
   - id: SE1
-    name: <"Euler equation", "no-arbitrage condition", "intratemporal FOC">
-    what_it_says: <plain English, 1-2 sentences. "Marginal utility today equals the gross return times the discount factor times expected marginal utility tomorrow.">
-    voice_picture: <a literal mental picture or analogy. "Think of a person on a tightrope between consuming today and saving for tomorrow — the equation says the rope tightens at the rate of interest.">
-    role_in_argument: <what this equation does for the paper. "This is the moment condition we estimate against in the GMM step.">
+    name: <Euler / FOC / no-arbitrage / market-clearing / ...>
+    what_it_says: <plain English, 1-2 sentences>
+    voice_picture: <a literal mental picture or analogy>
+    role_in_argument:
     teaching_priority: critical | important | mention
 
-# REQUIRED for genre=asset_pricing when the paper documents/explains a portfolio anomaly.
+# REQUIRED for asset_pricing when there's a long-short portfolio anomaly.
 factor_model_comparison:
   nested_models: [CAPM, FF3, FF5, q-factor]
-  alpha_per_model: ["0.42% (t=2.8)", "0.36% (t=2.3)", "0.29% (t=1.9)", "0.18% (t=1.1)"]
-  survives_all_models: false
-  interpretation: <one sentence. "the alpha fades by half against q-factor, suggesting investment + profitability explain most of it">
+  alpha_per_model: [<one entry per model: alpha + t-stat>]
+  survives_all_models: true | false
+  interpretation: <one sentence>
 
-# Universal. Every paper has at least one estimate to report (a calibration target counts).
+# Universal — calibration targets count.
 estimates:
   - id: ES1
-    parameter_name: <"ATT", "minimum-wage employment elasticity", "Sharpe ratio of the long-short portfolio", "discount factor beta">
-    point_estimate: <"0.034 (0.012)" — keep parens for SE if reported that way; or "-0.07">
-    std_error_or_ci: <"" if already in point_estimate; else the SE or 95% CI>
+    parameter_name:
+    point_estimate:
+    std_error_or_ci: <"" if already in point_estimate>
     unit: bps | log_points | sd_of_X | percent_of_mean_Y | elasticity | level | annualized_pct
-    economic_translation: <THE SPOKEN SENTENCE. Always pair (a) sd of the regressor, (b) baseline level of Y, (c) headline percent. "A one-sd ($350) rise in EITC generosity raises labor-force participation by 0.6 percentage points — about 4% of the sample baseline.">
-    comparable_benchmarks: [<prior literature comparisons. "Eissa & Liebman 1996 found ~2.4pp; this is roughly a quarter of that magnitude.">]
+    economic_translation: <THE SPOKEN SENTENCE. Pair sd of the regressor, baseline level of Y, and a percent so a human can feel the magnitude.>
+    comparable_benchmarks: [<prior literature comparisons>]
     teaching_priority: critical | important | mention
 
-# Modern empirical papers run 4-10 of these. List the ones the headline depends on.
 robustness_checks:
   - id: RC1
     check_type: alt_specification | alt_sample | placebo | alt_instrument | alt_inference | heterogeneity
-    what_it_rules_out: <which alternative explanation. "selection on time-varying state characteristics">
-    result_summary: <"coefficient drops by 8% but remains significant at the 5% level">
+    what_it_rules_out:
+    result_summary:
     headline_survives: true | false
 
 mechanism:
-  proposed_channel: <"liquidity rather than wealth — the effect is concentrated among households with no precautionary savings">
-  evidence_for_channel: <"heterogeneity is monotone in pre-period liquid assets; effect is null in the top quartile">
-  alternatives_ruled_out: <"a wealth-effect story would predict the opposite gradient">
+  proposed_channel:
+  evidence_for_channel:
+  alternatives_ruled_out:
 
 limitations_and_external_validity:
-  - <subtle issues the authors acknowledge. quote or paraphrase>
-  - <population / time / institutional features that limit generalization>
+  - <subtle issues + features that limit generalization>
 
 policy_implication:
-  policy_question: <if the paper implies one. e.g. "should the EITC be expanded?">
-  magnitude_in_policy_units: <"a $1k EITC top-up raises participation by ~0.4pp on average; equivalent to ~120k workers nationally">
-  caveats: <"effects are estimated for single mothers; extrapolation to married households is unsupported">
+  policy_question: <if the paper implies one>
+  magnitude_in_policy_units:
+  caveats:
 
 acronyms_to_spell_out:
-  # any acronym in the paper that should be expanded on first reading aloud
   - <ABBR>: <full form>
 
 hard_pronunciations:
-  # author or method names TTS will mangle
   - <term>: <PHO-ne-tic>
 
 RULES:
-- Pick ONE genre. If a paper bridges (e.g. structural + reduced form), pick the one where the contribution lives — usually the one in the abstract's lead sentence — and put the secondary content into the matching field anyway.
-- **MINIMUM 3 ITEMS MARKED `critical`** across `identification` + `specifications` +
-  `structural_equations` + `estimates`. For empirical_causal papers, the identification
-  block itself MUST be `critical`. The `critical` tier forces the teach stage to do
-  full decomposition. If you mark everything `mention`, you produce a hollow outline
-  and the script collapses into an abstract paraphrase. Pick the 3-5 things the
-  paper genuinely lives or dies by. If you honestly cannot find 3 — the paper is
-  too thin; surface that in `core_thesis` rather than faking compliance.
-- For empirical_causal papers: identification is the most important field. If the paper doesn't make it explicit, NAME WHAT THE PAPER IS IMPLICITLY ASSUMING and flag it as critical.
-- For each specification, voice_description must be a spoken sentence with NO symbols. Describe what's regressed on what, what's swept out, and where the variation comes from.
-- For each estimate, economic_translation must convert the number into something a human can feel — pair the sd of the regressor with the baseline level of the outcome and a percent.
-- For asset-pricing papers, fill factor_model_comparison whenever there's a long-short portfolio with alphas across factor models.
-- Output ONLY YAML. No prose, no markdown fence, no "Here is the outline:".
+- Pick ONE genre.
+- MIN 3 items marked `critical` across identification + specifications + structural_equations + estimates. Empirical-causal: identification MUST be `critical`. If you can't find 3 critical items, surface that in `core_thesis` rather than faking compliance.
+- voice_description and economic_translation are spoken sentences with NO symbols.
+- Output ONLY YAML.
 """
 
 
@@ -154,70 +138,56 @@ RULES:
 # STAGE 1.5 — Episode plan (macro structure)
 # --------------------------------------------------------------------------------------
 
-PLAN_EPISODE = """You are designing the macro structure of a podcast episode about an economics or finance paper. The structure MUST BE SHAPED BY THE PAPER's GENRE — an empirical causal-inference paper does not get the same arc as an asset-pricing paper, and a theory paper definitely doesn't get the same arc as either.
+PLAN_EPISODE = """Design the macro structure of a podcast episode about an econ/finance paper. The arc must be SHAPED BY THE GENRE — empirical-causal, structural, asset-pricing, and survey papers each deserve different shapes.
 
-LISTENER PROFILE (anchors voice, depth level, and which empirical / theory traditions to lean on):
+LISTENER PROFILE:
 ---
 {taste_profile}
 ---
-
-The paper's full text is intentionally NOT inlined — the outline below carries the identification, specifications, structural model, estimates, and robustness checks the planner needs. Plan the arc from the outline + the listener profile.
 
 PAPER:
 arxiv_id: {arxiv_id}
 title: {title}
 
-OUTLINE (already extracted — segments will reference these by id):
+OUTLINE (segments will reference these by id):
 ---
 {outline_yaml}
 ---
 
-You are NOT writing the script. You are deciding:
-1. The arc of segments — typically 5-9. Identification-heavy papers want more setup; survey papers want a taxonomy walk.
-2. Which outline items each segment covers (by id — SP*, SE*, ES*, RC*, ID).
-3. The persona's COMMITTED OPINIONS — the takes that survive across segments and make the professor sound like an actual economist with a stance, not a polite summarizer.
-4. Where this paper sits in the field — adjacent works, why this lands now.
+You are NOT writing the script. Decide:
+1. The arc — typically 5-9 segments. Identification-heavy papers want more setup; surveys want a taxonomy walk.
+2. Which outline items each segment covers (by id — ID, SP*, SE*, ES*, RC*).
+3. The persona's COMMITTED OPINIONS — takes that survive across segments and make this sound like a working economist with a stance, not a polite summarizer.
+4. Where this paper sits and what changed to make it land now.
 
-ARC SHAPING BY GENRE — DON'T TEMPLATE:
-- empirical_causal: spend a real segment on identification (often two — the design + the threats). Then specifications + headline estimate. Then robustness as one segment, not a montage. Then mechanism. Critique should engage with what the design CAN'T identify.
-- structural / pure_theory: walk the model's economic content first (agents → preferences → technology → equilibrium), then the equations the model lives in, then what the model gets you that reduced-form can't.
-- asset_pricing: motivate the anomaly, walk through the factor-model nest (CAPM → FF3 → FF5 → q-factor), reflect on what the surviving alpha implies. Often a "what's the SDF picture" detour is worth one segment.
-- survey: taxonomy walk; each segment = a sub-literature. The persona's stance comes from "what's actually settled" vs "what's still contested".
-
-Suggested role names (use these or invent your own — `setting`, `design`, `identification`, `first_stage`, `headline`, `robustness`, `mechanism`, `model`, `counterfactual`, `policy`, `critique`, whatever fits):
+Suggested role names (use these or invent your own):
 opening | motivation | setting | design | identification | model | result | robustness | mechanism | critique | policy | closing
 
-OUTPUT — pure YAML, no preamble, no markdown fence:
+OUTPUT — pure YAML:
 
 paper_id: {arxiv_id}
 arc:
   - id: seg_01
-    role: <free-form. opening / setting / design / identification / model / result / robustness / mechanism / critique / closing — or invent>
-    covers: [<outline ids — ID, SP*, SE*, ES*, RC* — that this segment delivers>]
-    callbacks: [<prior seg_ ids this segment leans on, if any>]
-    purpose: <one line. what this segment must accomplish for the listener>
-  # ... continue with seg_02, seg_03, ...
+    role: <free-form>
+    covers: [<outline ids>]
+    callbacks: [<prior seg_ ids>]
+    purpose: <one line — what this segment must accomplish>
 
 takes:
-  # 2-5 committed opinions. The realizer pulls from these in critique and asides.
-  # Avoid: "this is an important contribution to the literature".
-  # Prefer:  "the design is clever but the population is narrow — single mothers in
-  #           four states. The headline number won't generalize, and they undersell that."
-  - claim: <the opinion in the professor's voice>
-    evidence: <what in the paper or field supports it (one line)>
+  # 2-5 committed opinions in the professor's voice. Avoid "important contribution".
+  - claim:
+    evidence: <one line>
 
 sits_alongside:
-  # 1-3 adjacent works or lines of work that situate this paper.
-  - <e.g., "Chetty et al. on tax salience — same identification flavor (exposure-based DiD), different domain">
+  - <1-3 adjacent works that situate this paper>
 
-why_now: <one sentence. what changed in tooling / data / theory that made this paper possible or urgent right now>
+why_now: <one sentence>
 
 RULES:
-- Every `critical` outline item should be covered by some segment. `important` items mostly should. `mention` items can be folded in or skipped.
-- A segment's `covers` should be tight — usually 1-3 outline items. A segment that covers everything covers nothing.
-- For empirical_causal papers, the `identification` outline item (id: ID) MUST be covered explicitly by some segment. Don't fold it into "setting".
-- Don't pre-bake transitions. The realizer figures out how to bridge from one segment to the next based on neighbouring `purpose` lines.
-- The `takes` are the most important field. A plan with weak takes produces a polite, forgettable episode. What would a working economist actually say at coffee about this paper?
+- Every `critical` outline item is covered by some segment. For empirical_causal, identification (ID) MUST get its own explicit segment — don't fold it into "setting".
+- Tight `covers` (1-3 items per segment).
+- Don't pre-bake transitions — the realizer bridges from `purpose` lines.
+- Takes are the most important field. What would a working economist actually say at coffee?
 - Output ONLY YAML.
 """
 
@@ -416,57 +386,46 @@ treat that as a real beat. Don't smuggle a generic 8-act shape over the top."""
 # STAGE 3 — Coverage audit
 # --------------------------------------------------------------------------------------
 
-AUDIT_COVERAGE = """You are auditing a podcast script of an economics or finance paper for technical coverage. Be blunt — the goal is to catch glossing, not to be encouraging.
+AUDIT_COVERAGE = """Audit a podcast script of an econ/finance paper for technical coverage. Be blunt — the goal is to catch glossing.
 
-OUTLINE (the contract the script was supposed to meet):
+OUTLINE (the contract):
 ---
 {outline_yaml}
 ---
 
-SCRIPT (the actual output):
+SCRIPT:
 ---
 {script}
 ---
 
-For each `critical` and `important` item in the outline, decide whether the script SUBSTANTIVELY covers it. "Substantively" means:
+For each `critical`/`important` outline item, decide whether the script SUBSTANTIVELY covers it:
+- identification (ID): NAMES source of variation, STATES key assumption, DEFENDS it, says what BREAKS it. Empirical_causal papers fail if identification is even partially glossed — this is the most important check.
+- specifications: regression conveyed as a SPOKEN SENTENCE (what's regressed on what, what's swept out, where variation comes from). Symbolic = fail.
+- estimates: economic_translation paired with the number. Bare coefficient = fail.
+- structural_equations: voice_picture before naming the equation. LaTeX aloud = fail.
+- robustness_checks: addressed by name. "Standard battery passes" = fail.
+- mechanism: proposed channel AND evidence for it.
+- limitations: by name, not glossed.
 
-- For `identification` (id: ID): the script must NAME the source of variation, STATE the key assumption, DEFEND it, and SAY what would break it. Skipping any of those is a critical gap. Note: empirical_causal papers fail the audit if identification is even partially glossed; this is the single most important check in the econ pack.
-- For `specifications`: the script must convey the regression as a SPOKEN SENTENCE — what's regressed on what, what's swept out, where the variation comes from. Naming the equation symbolically does NOT count.
-- For `estimates`: the script must convey the economic_translation of the coefficient, not just the raw number. "The coefficient is 0.034" alone is a critical gap.
-- For `structural_equations`: the script must convey the voice_picture — the geometric or story analog. Reading the LaTeX out loud does NOT count.
-- For `robustness_checks`: the script must address the named checks specifically. "And the standard robustness checks pass" does NOT count.
-- For `mechanism`: the script must lay out the proposed channel AND the evidence for it.
-- For `limitations_and_external_validity`: must be addressed by name, not glossed.
+Also flag glossing — single hand-wavy clauses without operational meaning. Standard econ glosses: "X causes Y" without identification, "controlled for everything", "robust" without naming checks, "significant" without effect size, exclusion restriction not engaged for IV, R-squared as headline, "p < 0.05 means real".
 
-Also check for glossing — places where the script technically "covers" something but does so in a hand-wavy single clause without the operational meaning the listener would need. Standard econ glosses to flag:
-- "X causes Y" without identification named in the same beat
-- "controlled for everything"
-- "the result is robust" without naming the checks
-- "the coefficient is significant" without effect size
-- exclusion restriction not engaged with for any IV claim
-- R-squared treated as the headline
-- "p less than 0.05 means the effect is real"
-
-OUTPUT — pure YAML, no preamble, no markdown fence:
+OUTPUT — pure YAML:
 
 coverage_status: complete | partial | poor
 items_missing:
-  # Empty list ([]) if coverage is complete. Otherwise one entry per gap.
-  - id: <e.g., ID, SP1, ES2, SE1, RC3>
-    name: <name from outline (parameter_name / strategy / etc.)>
-    what_was_said: <verbatim quote from script if anything was said, else "not mentioned">
-    what_is_missing: <specific. e.g., "key_assumption named but assumption_defense skipped" or "economic_translation missing — only the raw coefficient was read">
+  - id:
+    name:
+    what_was_said: <verbatim quote, or "not mentioned">
+    what_is_missing: <specific>
     severity: critical | important
 items_glossed:
-  # Things technically "covered" but in a way that constitutes hand-waving.
-  - id: <ID>
-    quote: <the glossing phrase from the script>
-    why_its_a_gloss: <e.g., "uses 'X causes Y' without naming the identification strategy in the same beat">
+  - id:
+    quote:
+    why_its_a_gloss:
 voice_first_violations:
-  # Places where the script reads symbols aloud, includes LaTeX, or otherwise breaks voice-first rules.
-  - quote: <the offending phrase>
-    why: <e.g., "reads 'y i t equals alpha plus beta D' aloud — should describe variation, not symbols">
-overall_assessment: <2 sentences. Be blunt. End with one sentence on whether to regenerate or ship.>
+  - quote:
+    why:
+overall_assessment: <2 sentences. Blunt. End on regenerate-or-ship.>
 recommendation: ship | regenerate_with_gaps | regenerate_from_scratch
 """
 

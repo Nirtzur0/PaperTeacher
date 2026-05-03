@@ -145,15 +145,21 @@ def save_outline(arxiv_id: str, outline_yaml: str) -> tuple[Path, BaseModel]:
     subjects (ml, physics, philosophy, ...) can plug in their own typed
     contracts without touching this layer. The saved form is the *canonical*
     re-serialization — field order and formatting become consistent across stages.
+
+    Side effect: auto-claims the paper via `mark_seen` if it isn't already
+    in the seen set. This prevents the same paper looping back tomorrow if
+    a later step (plan, script, audit, render, delivery) fails. The skill's
+    explicit step-7a remains a no-op duplicate; the canonical step-20
+    `mark_seen` call still runs to attach final tags + audit:complete note.
     """
     paths.ensure_layout()
     domain = domain_for(arxiv_id)
     outline = domain.parse_outline(outline_yaml)
     p = paths.OUTLINES_DIR / f"{arxiv_id}.yaml"
     p.write_text(outline.to_yaml())
-    # Domain-specific stat fields (equations/concepts for ML; arguments/sources
-    # for humanities; etc.). Each domain's outline can implement summary helpers
-    # and we surface whatever the model exposes — fall back to None if absent.
+    if arxiv_id not in seen_ids():
+        title = getattr(outline, "title", "") or ""
+        mark_seen(arxiv_id, title=title, note="outline:saved")
     extras = {}
     for fn in ("critical_ids", "important_ids"):
         if callable(getattr(outline, fn, None)):

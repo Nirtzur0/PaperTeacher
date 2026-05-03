@@ -137,6 +137,7 @@ def _ensure_bundled_domains_loaded() -> None:
     our own load, that's a cycle.
     """
     from .domains import econ  # noqa: F401
+    from .domains import math  # noqa: F401
     from .domains import ml  # noqa: F401
     from .domains import neuro  # noqa: F401
     from .domains import physics  # noqa: F401

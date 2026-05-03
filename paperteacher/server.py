@@ -332,11 +332,16 @@ def render_audio(
     mode: str = "single_host",
     output_format: str = "mp3",
     backend: str | None = None,
+    force: bool = False,
 ) -> dict:
     """Kick off audio rendering for the saved script. Returns IMMEDIATELY
     with the path the file will land at; the actual TTS runs in a background
     thread. Poll `audio_status(arxiv_id)` until `ready=true` before sending
     the voice note.
+
+    Re-renders automatically if the saved script is newer than the existing
+    audio file (catches the "script regenerated, stale audio shipped" bug).
+    Pass `force=True` to re-render unconditionally.
 
     mode: "single_host" (denser, math-friendly) or "two_host" (parses
           <Person1>/<Person2> tags, stitches with a short pause).
@@ -348,9 +353,14 @@ def render_audio(
     if script is None:
         return {"ok": False, "error": f"no script saved for {arxiv_id}"}
     target = _audio_path(arxiv_id, output_format)
-    # If the file already exists, return ready immediately (re-runs are cheap).
-    if target.exists():
-        return {"ok": True, "audio_path": str(target), "status": "done"}
+    script_path = paths.SCRIPTS_DIR / f"{arxiv_id}.txt"
+    if target.exists() and not force:
+        audio_mtime = target.stat().st_mtime
+        script_mtime = script_path.stat().st_mtime if script_path.exists() else 0
+        if script_mtime <= audio_mtime:
+            return {"ok": True, "audio_path": str(target), "status": "done"}
+        # Script is newer — drop the stale render and rebuild.
+        target.unlink()
     with _render_lock:
         _render_state[arxiv_id] = {"status": "rendering"}
     threading.Thread(

@@ -53,13 +53,11 @@ combine them in your head.
    component, key trick, geometric picture, numerical walkthrough).
 6. Produce the YAML. Be exhaustive on equations — if the paper has 12
    numbered equations, your outline references all 12. Better to over-extract.
-7. Call `paperteacher.save_outline(arxiv_id=..., outline_yaml=...)`.
-7a. **Claim the paper now** — call `paperteacher.mark_seen(arxiv_id=..., title=...,
-    note="outline:saved", tags=[...])` *immediately* after the outline lands.
-    This prevents the same paper looping back tomorrow if any later step
-    (plan, script, audit, render, delivery) fails. If you legitimately abandon
-    mid-run, switch to `mark_skipped` with a reason — DO NOT leave the paper
-    unmarked.
+7. Call `paperteacher.save_outline(arxiv_id=..., outline_yaml=...)`. This
+   *automatically* claims the paper via mark_seen with note="outline:saved",
+   so a later failure (plan, script, audit, render, delivery) won't cause
+   the same paper to loop back tomorrow. If you legitimately abandon mid-run,
+   switch to `mark_skipped` with a reason — DO NOT leave the paper unmarked.
 
 ## Stage 1.5 — plan the arc (recommended; prevents template-feel)
 

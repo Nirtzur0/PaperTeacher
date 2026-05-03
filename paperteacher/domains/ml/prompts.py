@@ -26,9 +26,9 @@ from __future__ import annotations
 # STAGE 1 — Extraction
 # --------------------------------------------------------------------------------------
 
-EXTRACT_OUTLINE = """You are extracting the structured outline of a research paper BEFORE it gets taught as a podcast. Your job is to be exhaustive about what needs to be covered. Better to over-extract than to miss.
+EXTRACT_OUTLINE = """Extract a structured outline of a research paper before it gets taught as a podcast. Be exhaustive — better to over-extract than miss. Anything marked `critical` gets full decomposition in the teach stage; `mention` gets one substantive sentence.
 
-LISTENER PROFILE (so you know what to flag for extra explanation):
+LISTENER PROFILE:
 ---
 {taste_profile}
 ---
@@ -40,151 +40,98 @@ title: {title}
 {paper_text}
 ---
 
-For every significant equation in the paper you MUST produce a structured decomposition. Your output is the constraint on the teaching pass — anything you mark `critical` will be covered with its full decomposition. Anything you mark `mention` gets one substantive sentence. There is no fourth option.
-
-OUTPUT — pure YAML, no preamble, no markdown fence, no commentary:
+OUTPUT — pure YAML, no preamble, no markdown fence:
 
 paper_id: {arxiv_id}
 type: theoretical | empirical | position | survey
-core_thesis: <exactly 2 sentences naming the single most important claim>
-gap_filled: <1 sentence: what was wrong, missing, or unjustified before this paper>
-stake_claim: <ONE sentence committing to a stake. "If this paper is right, X
-              changes." Force a position the script can defend or push against.
-              Avoid generic "this advances the field" phrasing.>
+core_thesis: <2 sentences naming the single most important claim>
+gap_filled: <1 sentence: what was wrong, missing, or unjustified before>
+stake_claim: <ONE sentence: "If this paper is right, X changes." Avoid generic praise.>
 
 key_concepts:
   - id: C1
-    name: <short descriptive name>
+    name:
     plain_english: <one sentence the listener could repeat at dinner>
-    why_it_matters: <one sentence connecting to the listener's profile or to the field>
-    first_concrete_instance: <the concrete example the script should LEAD with
-                              before any abstract definition. "Concrete-then-abstract"
-                              is the move shared by every world-class explainer.
-                              e.g., "imagine a 3D point [1,0,0] and ask where the
-                              score field points" — NOT "the score is the gradient
-                              of log-density">
+    why_it_matters:
+    first_concrete_instance: <the example to LEAD with before any abstract definition. Concrete-then-abstract.>
     teaching_priority: critical | important | mention
 
 key_equations:
-  # INCLUDE EVERY SIGNIFICANT EQUATION. If the paper has 12 numbered equations, your YAML
-  # should reference all 12. You may mark trivial ones `mention`, but they must appear.
+  # INCLUDE EVERY SIGNIFICANT EQUATION. Trivial ones can be `mention` but must appear.
   - id: E1
-    english_name: <name in plain English, not the symbolic form>
-    what_it_solves: <the problem this equation solves, in plain English>
-    structure_in_words: <describe the equation's shape WITHOUT symbols. e.g., "expectation of the squared difference between two gradient fields">
+    english_name:
+    what_it_solves:
+    structure_in_words: <shape WITHOUT symbols>
     components:
-      # one entry per significant term. Describe ROLE, not SYMBOL.
-      - role: <what this term IS — physically, geometrically, semantically. NEVER the symbol.>
-        intuition: <a picture, analogy, or everyday meaning>
-        what_if_removed: <what concretely changes if this term is set to zero or removed>
-    key_trick: <the non-obvious insight that makes this equation work. Often "X cancels Y" or "we replaced expensive A with cheap B">
-    geometric_picture: <a literal mental picture — vector fields, surfaces, flows, attention matrices, graphs. Something the listener can SEE.>
-    numerical_walkthrough: <a small concrete example. e.g., "Take a 3-dimensional point [1, 0, 0]. The score at this point would be the gradient of log-density, which here equals...">
-    bridge_to_next: <how this equation connects to what comes next>
+      # one per significant term — describe ROLE, never SYMBOL
+      - role:
+        intuition:
+        what_if_removed:
+    key_trick: <the non-obvious insight (often "X cancels Y" or "expensive A replaced by cheap B")>
+    geometric_picture: <a literal mental picture the listener can SEE>
+    numerical_walkthrough: <small concrete example>
+    bridge_to_next:
     teaching_priority: critical | important | mention
 
 results_to_highlight:
   - id: R1
-    claim: <what the result says>
-    what_it_demonstrates: <what this proves about the theory or method>
-    why_surprising: <if applicable; otherwise omit>
-    # Provenance — every reported number must come WITH context, not just a SOTA score.
-    benchmark: <the dataset/eval/setting; "" if no number is involved>
-    baseline: <"prior best 84.1; obvious baseline 70.0" — never a bare SOTA number.
-               If the paper hides the baseline, say so.>
-    variance_note: <"3 seeds, std 0.4" or "single run, no error bars reported".
-                    Reproducibility research finds variance up to 90% across seeds —
-                    capture what the paper shows about robustness.>
-    compute: <"8x A100 for 12 hours" / "8x H100 for 3 weeks". "" if not applicable.>
+    claim:
+    what_it_demonstrates:
+    why_surprising: <omit if N/A>
+    benchmark: <"" if no number>
+    baseline: <prior best AND obvious baseline. Never a bare SOTA. Say so if hidden.>
+    variance_note: <e.g. "3 seeds, std 0.4" or "single run, no error bars">
+    compute: <e.g. "8x A100 12h"; "" if N/A>
 
-# What was tried before this contribution and SPECIFICALLY why it failed.
-# This drives the "naive-attempt-that-fails" pedagogical move (Karpathy's
-# bigram-then-transformer arc): the listener feels the limitation before
-# the contribution arrives. Without this section the contribution lands as
-# arbitrary cleverness. List one per critical contribution.
+# Drives the "naive-attempt-that-fails" move. Without this, contributions land as arbitrary cleverness.
 prior_attempts:
-  - name: <e.g., "vanilla softmax attention", "PPO with KL penalty", "...">
-    what_failed: <the specific failure mode this paper addresses, in one sentence>
+  - name:
+    what_failed: <one sentence>
 
-# Structured ablation evidence. Most papers' real story is here, not in the
-# headline number. Prefer this over vague "various ablations confirm".
-# Include only ablations the paper actually reports; don't fabricate.
 ablations:
-  - component_removed: <the variant tested; e.g., "the gating">
-    metric_delta: <"drops 4.2 points on GLUE" — concrete number from the paper>
-    implies: <what this reveals about which part is doing the work>
+  - component_removed:
+    metric_delta: <concrete number from the paper>
+    implies:
 
-# The silent contracts under which the theory holds. Markov, i.i.d.,
-# Lipschitz, full-rank, bounded reward, smoothness, etc. Naming the
-# assumption AND where it would break in practice is what separates an
-# honest explanation from a marketing one. Skip if the paper is purely empirical.
+# Markov, i.i.d., Lipschitz, full-rank, bounded reward, smoothness, etc. Skip if purely empirical.
 assumption_boundaries:
-  - assumption: <e.g., "tokens are i.i.d. given the prefix">
-    where_it_breaks: <e.g., "heavy-tailed code corpora or long boilerplate runs">
+  - assumption:
+    where_it_breaks:
 
-# Per-benchmark caveats. What the dataset/eval doesn't measure, contamination
-# risks, known biases. Construct-validity matters: benchmarks rarely measure
-# what their headline claims to measure.
+# Per-benchmark caveats — what the eval doesn't measure, contamination, known biases.
 benchmark_caveats:
   # name: caveat (one line each)
-  # GLUE: heavily contaminated post-2022; tells you about memorization more than reasoning
-  # MMLU: 4-choice format; captures recognition not generation
 
-# Compute and scale envelope, in audibly grounding form. "this is a 3-week,
-# 64-H100 result" is concrete; "they trained a model" is not. "" if the
-# paper doesn't report it.
-compute_envelope: <e.g., "64 H100s, 3 weeks, ~$120k of compute" or "">
+compute_envelope: <e.g. "64 H100s, 3 weeks" or "">
 
-# Common misreadings to pre-empt — canonical confusions for THIS genre of
-# paper. RLHF papers, scaling-law papers, mech-interp papers each have
-# their own characteristic failure modes of interpretation. Include the
-# 1-3 misreadings most likely to occur if the script isn't careful.
+# 1-3 most likely confusions for THIS genre of paper.
 common_misreadings:
-  - <e.g., "readers conflate 'linear attention' with 'as good as softmax' — the paper is explicit it's a different operating point">
-  - <e.g., "people will think the gain is from the architecture; the ablation shows it's the data filtering">
+  - <one line each>
 
 limitations_and_open_questions:
-  - <subtle issues the authors acknowledge — quote or paraphrase>
-  - <natural extensions worth thinking about>
+  - <subtle issues + natural extensions>
 
 acronyms_to_spell_out:
-  # acronyms in the paper that should be expanded on first reading aloud
   - <ABBR>: <full form>
 
 hard_pronunciations:
-  # author names, foreign terms, or jargon that TTS will mangle
   - <term>: <PHO-ne-tic>
 
-# Pre-computed substitution table for every symbol that appears in the paper.
-# The TEACH stage uses this as a lookup so the script NEVER reads symbols
-# aloud. Values are spoken-language descriptions of what the symbol IS in
-# this specific paper (a symbol can play different roles in different papers).
-# Cover greek letters, subscripted parameters (pi_theta, q_phi), notations
-# like log p(x|y), composite expressions like Q K^T / sqrt(d), etc.
+# Pre-computed substitution table. The TEACH stage uses this so the script never reads symbols aloud. Cover greek, subscripted parameters (pi_theta), notations (log p(x|y)), composite expressions (Q K^T / sqrt(d)).
 symbol_glossary:
   # symbol_or_expression: spoken description
-  # pi_theta: "the policy"
-  # log p(x|y): "the log-likelihood of x given y"
-  # Q K^T / sqrt(d): "queries dotted with keys, scaled down by the square root of the head dimension"
-  # nabla_x log p(x): "the score — the gradient of log-density at x"
 
 RULES:
-- Be exhaustive on equations. Do not skip the appendix if it has the cleanest proof.
-- **MINIMUM 3 ITEMS MARKED `critical`** across `key_equations` + `key_concepts`. The
-  `critical` tier exists to FORCE the teach stage to do full decomposition. If you
-  mark everything `mention` to dodge the harder schema fields, you produce a hollow
-  outline and the script collapses into an abstract paraphrase. Pick the 3-5 things
-  the paper genuinely lives or dies by, and mark them `critical`. If you honestly
-  cannot find 3 — the paper is too thin to teach; surface that fact in
-  `core_thesis` rather than faking compliance with everything-is-mention.
+- Be exhaustive on equations including the appendix.
+- MIN 3 items marked `critical` across key_equations + key_concepts. If you can't find 3, surface that in `core_thesis` rather than faking compliance.
 - For `critical` equations every component-and-trick field is mandatory.
-- For each component, describe ROLE not SYMBOL. "the model's predicted gradient field at each input point" — NOT "nabla theta of f sub theta".
-- Every CRITICAL concept must have a `first_concrete_instance`. The script will lead with it.
-- Every reported NUMBER in `results_to_highlight` must carry baseline + variance + compute. A SOTA number without context is a teaching failure.
-- For `prior_attempts` and `assumption_boundaries`, include only what the paper actually says or what the genre obviously requires. Don't fabricate.
-- `symbol_glossary` should be exhaustive enough that the teach-stage prompt can substitute every symbol it would otherwise be tempted to read aloud.
-- If you don't have a clean intuition for an equation, mark it `mention` and add `note: "I don't have a clean intuition — the script should acknowledge that"`. Flag, don't fake.
-- Output ONLY YAML. No prose, no markdown fence, no "Here is the outline:".
+- Components describe ROLE, not SYMBOL.
+- Every critical concept has a `first_concrete_instance`.
+- Every reported NUMBER carries baseline + variance + compute.
+- Don't fabricate `prior_attempts` or `assumption_boundaries`.
+- `symbol_glossary` exhaustive enough to substitute anything the teach stage might read aloud.
+- If you don't have a clean intuition, mark `mention` with `note: "..."`. Flag, don't fake.
+- Output ONLY YAML.
 """
 
 
@@ -192,97 +139,62 @@ RULES:
 # STAGE 1.5 — Episode plan (macro structure)
 # --------------------------------------------------------------------------------------
 
-PLAN_EPISODE = """You are designing the macro structure of a podcast episode about a research paper. The structure MUST BE SHAPED BY THE PAPER — a survey paper does not get the same arc as a theory paper, and a position paper definitely doesn't get the same arc as an empirical one. Your job is to think about what THIS specific paper deserves, then commit the persona's stance about it.
+PLAN_EPISODE = """Design the macro structure of a podcast episode about a research paper. The arc must be SHAPED BY THE PAPER — surveys, theory, position, and empirical papers each deserve different shapes. Commit the persona's stance.
 
-LISTENER PROFILE (anchors voice, depth level, and what to lean into):
+LISTENER PROFILE:
 ---
 {taste_profile}
 ---
-
-The paper's full text is intentionally NOT inlined here — the outline below carries every structurally relevant claim, equation, prior attempt, limitation, and result. Plan the arc from the outline + the listener profile.
 
 PAPER:
 arxiv_id: {arxiv_id}
 title: {title}
 
-OUTLINE (already extracted — segments will reference these by id):
+OUTLINE:
 ---
 {outline_yaml}
 ---
 
-You are NOT writing the script. You are deciding:
-1. The arc of segments — typically 5-9, but use your judgment. A dense theory paper might want 10; a sharp position paper might want 4.
+You are NOT writing the script. Decide:
+1. The arc — typically 5-9 segments, but use judgment.
 2. Which outline items each segment covers (by id).
-3. The persona's COMMITTED OPINIONS about this paper — the takes that survive across segments and make the professor sound like a real expert with a stance, not a polite summarizer.
-4. Where this paper sits in the field — adjacent works, why this lands now.
+3. The persona's COMMITTED OPINIONS — takes that survive across segments.
+4. Where this paper sits and what changed to make it land now.
 
-ARC SHAPING — DON'T TEMPLATE:
-Different papers want different arcs. A few examples (don't follow these literally — let the paper lead):
-- A theory paper might open with the historical problem, spend most of the runtime building the math from prereqs, and end reflecting on what's actually new vs. notation.
-- An empirical paper might spend two segments on what was wrong with prior evals before introducing the method, then dwell on results with skeptical eyes.
-- A position paper has no equations to walk through — the arc IS the argument, and the critique segment is bigger than usual.
-- A survey can use a "taxonomy walk" rather than a setup→payoff arc.
-- A method paper with one clever trick should pace toward the trick, then reflect on what it actually bought.
-
-Suggested role names (use these or invent your own — `worked_example`,
-`historical_aside`, `comparison`, `vibes_check`, `taxonomy`,
-`live_derivation`, `naive_attempt`, whatever fits):
+Suggested role names (use these or invent your own):
 opening | motivation | naive_attempt | prereq | setup | core | result | critique | closing
 
-PEDAGOGY MOVE — STRONGLY PREFER:
-The "naive_attempt that fails" move is the load-bearing pedagogical pattern
-from Karpathy / Sanderson / distill.pub: motivate the contribution by
-letting the listener feel the simpler approach break first. If the
-outline's `prior_attempts` is non-empty, give it its own segment — don't
-collapse "what was tried before" into a half-sentence in the setup.
+If `prior_attempts` is non-empty, give it its own segment — the "naive-attempt-that-fails" move (Karpathy/3Blue1Brown) is load-bearing.
 
-OUTPUT — pure YAML, no preamble, no markdown fence:
+OUTPUT — pure YAML:
 
 paper_id: {arxiv_id}
 arc:
   - id: seg_01
-    role: <free-form. opening / motivation / naive_attempt / prereq / setup / core / result / critique / closing — or invent>
-    covers: [<outline ids — eq_*, con_*, res_* — that this segment delivers>]
-    callbacks: [<prior seg_ ids this segment leans on, if any>]
-    purpose: <one line. what this segment must accomplish for the listener>
-  # ... continue with seg_02, seg_03, ...
+    role: <free-form>
+    covers: [<outline ids>]
+    callbacks: [<prior seg_ ids>]
+    purpose: <one line>
 
 takes:
-  # 2-5 committed opinions. The realizer will pull from these in critique segments
-  # and asides — they are the persona's STANCE, not generic praise.
-  #
-  # AT LEAST ONE take MUST be METHODOLOGICAL — a stance about what the
-  # evidence actually shows vs. what the abstract claims. Examples:
-  #  - "the gain is from data filtering, not the architectural change —
-  #     section 4.2 ablation makes this obvious"
-  #  - "the headline number on GLUE is dominated by memorization — the
-  #     OOD eval in appendix B is the honest result"
-  # Without a methodological take, the critique segment will be polite
-  # and the take will not survive contact with the script.
-  #
-  # Avoid: "this is an important contribution to the field".
-  # Prefer:  "the loss term is the right primitive, but they're underselling that it
-  #           only works in the high-data regime — section 4.2 ablation makes this obvious".
-  - claim: <the opinion itself, in the professor's voice>
-    evidence: <what in the paper or field supports it (one line)>
-    appears_in: [<seg_ ids where this take should land — pick 2-3 segments,
-                  not just one. A take that appears in only one segment
-                  reads as an aside, not a stance.>]
+  # 2-5 committed opinions in the professor's voice.
+  # AT LEAST ONE must be METHODOLOGICAL — what the evidence actually shows vs. what the abstract claims. Without a methodological take, the critique segment will be polite. Avoid generic praise.
+  - claim:
+    evidence: <one line>
+    appears_in: [<2-3 seg_ ids — a take in only one segment reads as an aside>]
 
 sits_alongside:
-  # 1-3 adjacent works or lines of work that situate this paper.
-  - <e.g., "MiniLLM (Gu et al., 2023) — same KL-on-outputs intuition, no reasoning-trace alignment">
+  - <1-3 adjacent works>
 
-why_now: <one sentence. what changed in tooling / data / theory that made this paper possible or urgent right now>
+why_now: <one sentence>
 
 RULES:
-- Every `critical` outline item should be covered by some segment. `important` items mostly should. `mention` items can be folded in or skipped.
-- A segment's `covers` should be tight — usually 1-3 outline items. A segment that covers everything covers nothing.
-- `callbacks` are real narrative dependencies, not links for the sake of links. If seg_05 doesn't actually need to reference seg_02, leave it empty.
-- Don't pre-bake transitions. The realizer figures out how to bridge from one segment to the next based on neighbouring `purpose` lines — that's why each episode sounds different rather than templated.
-- The `takes` are the most important field. A plan with weak takes produces a polite, forgettable episode. Spend real thought on them — what would a domain expert *actually* say at coffee about this paper?
-- AT LEAST one take must be methodological (not thematic), and every take should `appears_in` at least 2 segments.
-- Output ONLY YAML. No prose, no markdown fence.
+- Every `critical` outline item is covered by some segment.
+- Tight `covers` (1-3 items per segment).
+- Don't pre-bake transitions.
+- Takes are the most important field — what would a domain expert actually say at coffee?
+- ≥1 methodological take; every take `appears_in` ≥ 2 segments.
+- Output ONLY YAML.
 """
 
 
@@ -473,17 +385,12 @@ VOICE-FIRST RULES (HARD):
   your substitution table. If a symbol appears that isn't in the glossary,
   describe its role in one short clause the first time, then alias.
 - No LaTeX, no symbols in output, no "the equation states".
-- Spell out acronyms on first use per `acronyms_to_spell_out`. After first use, you may use
-  the acronym only if it's a common spoken word (RNN → say "recurrent net" the first time,
-  then either is fine; ELBO → say "evidence lower bound" first, then say "ELBO" — but pronounce
-  it as a word "EL-bow", not letters).
-- Use phonetic guidance per `hard_pronunciations`. e.g., "Schrödinger" → write "Schrödinger
-  (SHRO-ding-er)" the first time it appears.
+- Spell out acronyms on first use per `acronyms_to_spell_out`. After first use, alias is fine
+  if the listener will retain it. Use whichever pronunciation is natural to the field
+  (letters vs. spoken-word).
+- Use phonetic guidance per `hard_pronunciations` on first mention.
 - Short sentences beat comma-laden ones. TTS pauses at periods, barely at commas.
 - Numbers become words: see the NUMERICAL REWRITES section below.
-- ARCHITECTURE acronyms (GQA, SwiGLU, RoPE, KV cache, MoE, FlashAttention,
-  LoRA): expand on first mention, then alias. Don't introduce them mid-flow
-  without naming them.
 
 {voice_guide_section}
 
@@ -594,91 +501,68 @@ role, treat that as a real beat. Don't smuggle the default 7-act shape in over t
 # STAGE 3 — Coverage audit
 # --------------------------------------------------------------------------------------
 
-AUDIT_COVERAGE = """You are auditing a podcast script for technical coverage AND faithfulness AND voice. Be blunt — the goal is to catch glossing, not to be encouraging.
+AUDIT_COVERAGE = """Audit a podcast script for technical coverage AND faithfulness AND voice. Be blunt — catch glossing.
 
-OUTLINE (the contract the script was supposed to meet):
+OUTLINE (the contract):
 ---
 {outline_yaml}
 ---
 
-SCRIPT (the actual output):
+SCRIPT:
 ---
 {script}
 ---
 
-Run six independent checks. A failure on any high-severity check below
-should bias toward `regenerate_with_gaps`; multiple failures or a coverage
-collapse should push to `regenerate_from_scratch`.
+Six independent checks. Any high-severity failure → `regenerate_with_gaps`; multiple failures or coverage collapse → `regenerate_from_scratch`.
 
 CHECK 1 — COVERAGE:
-For each `critical` and `important` item in the outline, decide whether the script SUBSTANTIVELY covers it. "Substantively" means:
-- For equations: the script must convey the problem it solves, the role of each major component, the key trick, AND a concrete picture (geometric or numerical). Just naming the equation does NOT count. Saying "and they define a loss function" does NOT count.
-- For concepts: the script must convey what the concept IS, why it matters, AND lead with the
-  outline's `first_concrete_instance` before any abstract definition. A passing mention does NOT count.
-- For limitations: the script must acknowledge them by name, not gloss with "of course there are some open questions".
+For each `critical`/`important` outline item, is it SUBSTANTIVELY covered?
+- equations: problem-it-solves + role of each major component + key trick + a concrete picture (geometric or numerical). Just naming = fail. "And they define a loss" = fail.
+- concepts: what it IS + why it matters + leads with `first_concrete_instance`. Passing mention = fail.
+- limitations: by name, not "of course there are open questions".
 
 CHECK 2 — GLOSSING:
-Places where the script technically "covers" something but does so in a single hand-wavy clause without the operational meaning the listener would need to actually understand it ("and then we apply standard techniques", "the model learns to attend to the right thing", "it's just MSE"). Treat single-clause hand-waves as gloss, not coverage.
+Single hand-wavy clauses without operational meaning ("and then we apply standard techniques", "the model learns to attend to the right thing", "it's just MSE").
 
 CHECK 3 — FAITHFULNESS / RESULT-WITH-BASELINE:
-For every reported NUMBER in the script, verify it appears with (a) the
-baseline or prior-best AND (b) the claim it is evidence for. A bare
-"achieves 87.3 on GLUE" with no baseline and no inferential connection is
-a faithfulness failure — it pretends a SOTA score is a result rather than
-evidence. Flag each occurrence.
+Every reported NUMBER must appear with (a) baseline or prior-best AND (b) the claim it's evidence for. Bare "87.3 on GLUE" = fail.
 
 CHECK 4 — ANTHROPOMORPHISM:
-Pattern-match for: "the model learns to", "the model decides", "the model
-understands", "the model wants", "the model tries to", "figures out",
-"realizes that". Each occurrence is a voice violation. The exception:
-direct paraphrase of authors' phrasing CLEARLY marked as such ("the
-authors describe this as the model 'learning to'...").
+"the model learns/decides/understands/wants/tries/figures out/realizes". Each = a violation. Exception: clearly-marked author-paraphrase.
 
 CHECK 5 — NAME-DROPPING WITHOUT OPERATIONALIZATION:
-For every named technique introduced in the script (DPO, GRPO, FlashAttention,
-SwiGLU, etc.), check that an operational definition appears within ONE
-sentence after first mention. "They use Direct Preference Optimization"
-followed by no description of what DPO does is a failure.
+Every named technique (DPO, GRPO, FlashAttention, …) needs an operational definition within ~one sentence of first mention.
 
 CHECK 6 — VOICE-FIRST:
-Places where the script reads symbols aloud, includes LaTeX, retains raw
-Unicode greek letters, fails to expand acronyms on first use, or breaks
-the numerical-rewrite rules.
+Symbols-aloud, LaTeX leakage, raw Greek, missed acronym expansion, broken numerical-rewrite rules.
 
-OUTPUT — pure YAML, no preamble, no markdown fence:
+OUTPUT — pure YAML:
 
 coverage_status: complete | partial | poor
 items_missing:
-  # Empty list ([]) if coverage is complete. Otherwise one entry per gap.
-  - id: <e.g., E3>
-    name: <english_name from outline>
-    what_was_said: <verbatim quote from script if anything was said, else "not mentioned">
-    what_is_missing: <specific. e.g., "the geometric picture is missing" or "the numerical walkthrough was skipped" or "the key trick was named but not explained" or "concept was defined abstractly without leading from first_concrete_instance">
+  - id:
+    name:
+    what_was_said: <verbatim quote, or "not mentioned">
+    what_is_missing: <specific>
     severity: critical | important
 items_glossed:
-  # Things technically "covered" but in a way that constitutes hand-waving.
-  - id: <ID>
-    quote: <the glossing phrase from the script>
-    why_its_a_gloss: <e.g., "calls it 'just MSE' without explaining what makes it the right loss for this objective">
+  - id:
+    quote:
+    why_its_a_gloss:
 voice_first_violations:
-  # Symbols-aloud, LaTeX leakage, raw Greek, missed acronym-expansion, etc.
-  - quote: <the offending phrase>
-    why: <e.g., "reads 'sigma sub i' aloud — should describe role from symbol_glossary">
+  - quote:
+    why:
 faithfulness_violations:
-  # Each one is a number reported without baseline + evidential connection,
-  # OR a claim that doesn't trace to an outline field. Empty list if none.
-  - quote: <the offending phrase from script>
-    why: <e.g., "quotes '87.3 on GLUE' with no baseline and no claim-of-evidence">
+  - quote:
+    why:
 anthropomorphism_violations:
-  # Pattern-match results. Empty list if none.
-  - quote: <verbatim phrase>
-    why: <e.g., "'the model learns to attend to' — agency belongs to the optimizer/data, not the model">
+  - quote:
+    why:
 name_drop_violations:
-  # Named technique without operational definition within one sentence of first mention.
-  - technique: <e.g., "DPO">
-    quote: <the introduction phrase>
-    why: <e.g., "first mentioned at minute 4:30 with no description of the loss form">
-overall_assessment: <2-3 sentences. Be blunt. End with one sentence on whether to regenerate or ship. Multiple high-severity violations or a coverage collapse → regenerate_from_scratch; localized gaps → regenerate_with_gaps; clean → ship.>
+  - technique:
+    quote:
+    why:
+overall_assessment: <2-3 sentences. Blunt. End on regenerate-or-ship.>
 recommendation: ship | regenerate_with_gaps | regenerate_from_scratch
 """
 
